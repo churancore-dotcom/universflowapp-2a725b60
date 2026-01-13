@@ -4,6 +4,7 @@ import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { iosSpring, iosBounce, staggerItem } from '@/lib/animations';
 import DownloadButton from './DownloadButton';
+import LikeButton from './LikeButton';
 
 interface SongCardProps {
   song: Song;
@@ -72,11 +73,12 @@ const SongCard = ({ song, index = 0 }: SongCardProps) => {
           </div>
         )}
         
-        {/* iOS-style gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {/* iOS-style gradient overlay - always visible on mobile */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300" />
         
-        {/* Download button - top right */}
-        <div className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Action buttons - always visible on mobile, hover on desktop */}
+        <div className="absolute top-2 right-2 z-20 flex flex-col gap-1.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+          <LikeButton songId={song.id} size="sm" className="bg-black/40 backdrop-blur-sm" />
           <DownloadButton song={song} size="sm" />
         </div>
         

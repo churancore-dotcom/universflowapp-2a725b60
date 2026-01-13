@@ -3,9 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search as SearchIcon, Music, X, Mic } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
+import { useDownloads } from '@/contexts/DownloadContext';
 import BottomNav from '@/components/BottomNav';
 import MiniPlayer from '@/components/MiniPlayer';
 import FullscreenPlayer from '@/components/FullscreenPlayer';
+import LikeButton from '@/components/LikeButton';
+import DownloadButton from '@/components/DownloadButton';
 import { TabTransition } from '@/components/PageTransition';
 import { Input } from '@/components/ui/input';
 import { iosSpring, iosBounce } from '@/lib/animations';
@@ -27,6 +30,7 @@ const Search = () => {
   const [searching, setSearching] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const { playSong, currentSong, isPlaying } = usePlayer();
+  const { getDownloadedUrl } = useDownloads();
 
   useEffect(() => {
     if (query.length > 1) {
@@ -232,48 +236,58 @@ const Search = () => {
               <div className="space-y-1">
                 {results.map((song, index) => {
                   const isActive = currentSong?.id === song.id;
+                  const offlineUrl = getDownloadedUrl(song.id);
                   return (
-                    <motion.button
+                    <motion.div
                       key={song.id}
-                      className={`w-full flex items-center gap-4 p-3 rounded-2xl transition-all text-left ${
+                      className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
                         isActive ? 'bg-primary/10' : 'active:bg-white/5'
                       }`}
-                      onClick={() => playSong(song)}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ ...iosSpring, delay: index * 0.03 }}
-                      whileTap={{ scale: 0.98, backgroundColor: 'rgba(255,255,255,0.05)' }}
                     >
-                      <motion.div 
-                        className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center overflow-hidden flex-shrink-0"
-                        whileHover={{ scale: 1.05 }}
-                        transition={iosBounce}
+                      <motion.button
+                        className="flex-1 flex items-center gap-3 text-left min-w-0"
+                        onClick={() => playSong(song, offlineUrl)}
+                        whileTap={{ scale: 0.98 }}
                       >
-                        {song.cover_url ? (
-                          <img src={song.cover_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <Music className="w-6 h-6 text-muted-foreground" />
-                        )}
-                      </motion.div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-medium text-[15px] truncate ${isActive ? 'text-primary' : ''}`}>
-                          {song.title}
-                        </p>
-                        <p className="text-[13px] text-muted-foreground truncate">{song.artist}</p>
-                      </div>
-                      {isActive && isPlaying && (
-                        <div className="flex items-end gap-[3px] h-4 mr-2">
-                          {[...Array(3)].map((_, i) => (
-                            <motion.div
-                              key={i}
-                              className="w-[3px] bg-primary rounded-full"
-                              animate={{ height: [5, 14, 5] }}
-                              transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.12, ease: "easeInOut" }}
-                            />
-                          ))}
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          {song.cover_url ? (
+                            <img src={song.cover_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <Music className="w-5 h-5 text-muted-foreground" />
+                          )}
                         </div>
-                      )}
-                    </motion.button>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-medium text-[15px] truncate ${isActive ? 'text-primary' : ''}`}>
+                            {song.title}
+                          </p>
+                          <p className="text-[13px] text-muted-foreground truncate">{song.artist}</p>
+                        </div>
+                      </motion.button>
+                      
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-1">
+                        {isActive && isPlaying ? (
+                          <div className="flex items-end gap-[3px] h-4 mr-2">
+                            {[...Array(3)].map((_, i) => (
+                              <motion.div
+                                key={i}
+                                className="w-[3px] bg-primary rounded-full"
+                                animate={{ height: [5, 14, 5] }}
+                                transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.12, ease: "easeInOut" }}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <>
+                            <LikeButton songId={song.id} size="sm" />
+                            <DownloadButton song={song} size="sm" />
+                          </>
+                        )}
+                      </div>
+                    </motion.div>
                   );
                 })}
               </div>

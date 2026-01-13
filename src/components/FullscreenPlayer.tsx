@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, Volume2, Shuffle, Repeat, Repeat1, ChevronDown, Heart, ListMusic, Share2, Waves } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Waves } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { Slider } from '@/components/ui/slider';
 import { iosSpring, iosBounce } from '@/lib/animations';
 import DownloadButton from './DownloadButton';
+import LikeButton from './LikeButton';
 import ShareSongModal from './ShareSongModal';
 import AddToPlaylistModal from './AddToPlaylistModal';
 import CreatePlaylistModal from './CreatePlaylistModal';
@@ -204,14 +205,7 @@ const FullscreenPlayer = () => {
                   >
                     <Share2 className="w-6 h-6 text-muted-foreground hover:text-primary transition-colors" />
                   </motion.button>
-                  <motion.button
-                    className="p-2 rounded-full"
-                    whileHover={{ scale: 1.15 }}
-                    whileTap={{ scale: 0.9 }}
-                    transition={iosBounce}
-                  >
-                    <Heart className="w-6 h-6 text-muted-foreground hover:text-primary transition-colors" />
-                  </motion.button>
+                  <LikeButton songId={currentSong.id} size="md" />
                 </div>
               </div>
             </motion.div>

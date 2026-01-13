@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, ChevronUp } from 'lucide-react';
+import { Play, Pause, SkipForward, ChevronUp } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { iosSpring, iosBounce } from '@/lib/animations';
+import LikeButton from './LikeButton';
 
 const MiniPlayer = () => {
   const {
@@ -11,7 +12,6 @@ const MiniPlayer = () => {
     duration,
     togglePlay,
     nextSong,
-    prevSong,
     setExpanded
   } = usePlayer();
 
@@ -113,21 +113,17 @@ const MiniPlayer = () => {
             </div>
           </motion.div>
 
-          {/* Controls - iOS style */}
+          {/* Controls - Mobile optimized */}
           <div className="flex items-center gap-1">
-            <motion.button
-              className="p-2.5 rounded-full hidden md:flex items-center justify-center"
-              onClick={prevSong}
-              whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,0.1)' }}
-              whileTap={{ scale: 0.85 }}
-              transition={iosBounce}
-            >
-              <SkipBack className="w-5 h-5" fill="currentColor" />
-            </motion.button>
+            {/* Like button - mobile visible */}
+            <LikeButton songId={currentSong.id} size="sm" className="mr-1" />
             
             <motion.button
               className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-black shadow-lg"
-              onClick={togglePlay}
+              onClick={(e) => {
+                e.stopPropagation();
+                togglePlay();
+              }}
               whileTap={{ scale: 0.88 }}
               whileHover={{ scale: 1.05 }}
               transition={iosBounce}
@@ -140,9 +136,11 @@ const MiniPlayer = () => {
             </motion.button>
             
             <motion.button
-              className="p-2.5 rounded-full hidden md:flex items-center justify-center"
-              onClick={nextSong}
-              whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,0.1)' }}
+              className="p-2.5 rounded-full flex items-center justify-center"
+              onClick={(e) => {
+                e.stopPropagation();
+                nextSong();
+              }}
               whileTap={{ scale: 0.85 }}
               transition={iosBounce}
             >
@@ -152,9 +150,8 @@ const MiniPlayer = () => {
 
           {/* Expand button - iOS chevron */}
           <motion.button
-            className="p-2.5 rounded-full ml-2"
+            className="p-2.5 rounded-full ml-1"
             onClick={() => setExpanded(true)}
-            whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,0.1)' }}
             whileTap={{ scale: 0.85 }}
             transition={iosBounce}
           >

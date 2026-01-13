@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { useMediaSession } from '@/hooks/useMediaSession';
-
+import { supabase } from '@/integrations/supabase/client';
 export interface Song {
   id: string;
   title: string;
@@ -272,7 +272,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const playSong = useCallback((song: Song, offlineUrl?: string | null) => {
+  const playSong = useCallback(async (song: Song, offlineUrl?: string | null) => {
     if (audioRef.current) {
       // Cancel any ongoing crossfade
       if (crossfadeIntervalRef.current) {
@@ -294,6 +294,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCurrentIndex(queue.length);
       } else {
         setCurrentIndex(existingIndex);
+      }
+
+      // Track recently played (fire and forget)
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from('recently_played')
+            .insert({
+              user_id: user.id,
+              song_id: song.id,
+            });
+        }
+      } catch (error) {
+        // Silent fail for tracking
+        console.error('Failed to track play:', error);
       }
     }
   }, [queue, volume]);

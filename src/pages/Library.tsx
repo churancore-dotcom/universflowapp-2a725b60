@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Music, Heart, ListMusic, Clock, Plus, Download, CloudOff, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,6 +26,7 @@ const formatBytes = (bytes: number) => {
 
 const Library = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { playSong, currentSong, isPlaying } = usePlayer();
   const { downloads, removeSong, getDownloadedUrl, totalStorageUsed, clearAllDownloads } = useDownloads();
   const [likedSongs, setLikedSongs] = useState<Song[]>([]);
@@ -431,34 +433,51 @@ const Library = () => {
                   </motion.button>
                 </motion.div>
               ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  {playlists.map((playlist, index) => (
-                    <motion.div
-                      key={playlist.id}
-                      className="rounded-2xl overflow-hidden cursor-pointer"
-                      style={{
-                        background: 'rgba(28, 28, 30, 0.8)',
-                        border: '1px solid rgba(255, 255, 255, 0.06)',
-                      }}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ ...iosSpring, delay: index * 0.05 }}
-                      whileHover={{ scale: 1.03, y: -4 }}
-                      whileTap={{ scale: 0.97 }}
-                    >
-                      <div className="aspect-square bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center">
-                        {playlist.cover_url ? (
-                          <img src={playlist.cover_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <ListMusic className="w-12 h-12 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="p-3">
-                        <p className="font-semibold text-[15px] truncate">{playlist.title}</p>
-                        <p className="text-[13px] text-muted-foreground truncate">{playlist.description || 'Playlist'}</p>
-                      </div>
-                    </motion.div>
-                  ))}
+                <div className="space-y-4">
+                  {/* Create new playlist button */}
+                  <motion.button
+                    onClick={() => setShowCreatePlaylist(true)}
+                    className="w-full flex items-center gap-4 p-4 rounded-2xl bg-primary/10"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={iosBounce}
+                  >
+                    <div className="w-14 h-14 rounded-xl bg-primary flex items-center justify-center">
+                      <Plus className="w-7 h-7 text-primary-foreground" />
+                    </div>
+                    <span className="font-semibold text-lg">Create New Playlist</span>
+                  </motion.button>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {playlists.map((playlist, index) => (
+                      <motion.div
+                        key={playlist.id}
+                        className="rounded-2xl overflow-hidden cursor-pointer"
+                        style={{
+                          background: 'rgba(28, 28, 30, 0.8)',
+                          border: '1px solid rgba(255, 255, 255, 0.06)',
+                        }}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ ...iosSpring, delay: index * 0.05 }}
+                        whileHover={{ scale: 1.03, y: -4 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => navigate(`/playlist/${playlist.id}`)}
+                      >
+                        <div className="aspect-square bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center">
+                          {playlist.cover_url ? (
+                            <img src={playlist.cover_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <ListMusic className="w-12 h-12 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <p className="font-semibold text-[15px] truncate">{playlist.title}</p>
+                          <p className="text-[13px] text-muted-foreground truncate">{playlist.description || 'Playlist'}</p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
               )}
             </TabsContent>
@@ -469,6 +488,12 @@ const Library = () => {
       <BottomNav />
       <MiniPlayer />
       <FullscreenPlayer />
+      
+      <CreatePlaylistModal
+        isOpen={showCreatePlaylist}
+        onClose={() => setShowCreatePlaylist(false)}
+        onCreated={fetchLibrary}
+      />
       </motion.div>
     </TabTransition>
   );

@@ -1,9 +1,11 @@
-import React, { memo, useCallback, useMemo } from 'react';
-import { Play, Pause } from 'lucide-react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
+import { Play, Pause, ListPlus } from 'lucide-react';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import DownloadButton from './DownloadButton';
 import LikeButton from './LikeButton';
+import AddToPlaylistModal from './AddToPlaylistModal';
+import CreatePlaylistModal from './CreatePlaylistModal';
 
 interface SongCardProps {
   song: Song;
@@ -31,6 +33,9 @@ const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
   const { currentSong, isPlaying, playSong, togglePlay } = usePlayer();
   const { isDownloaded, getDownloadedUrl } = useDownloads();
   
+  const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
+  const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
+  
   const isCurrentSong = useMemo(() => currentSong?.id === song.id, [currentSong?.id, song.id]);
   const downloaded = useMemo(() => isDownloaded(song.id), [isDownloaded, song.id]);
 
@@ -42,6 +47,11 @@ const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
       playSong(song, offlineUrl);
     }
   }, [isCurrentSong, togglePlay, getDownloadedUrl, song, playSong]);
+
+  const handleAddToPlaylist = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowAddToPlaylist(true);
+  }, []);
 
   return (
     <div
@@ -77,6 +87,12 @@ const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
         <div className="absolute top-2 right-2 z-20 flex flex-col gap-1.5">
           <LikeButton songId={song.id} size="sm" className="bg-black/50 backdrop-blur-md rounded-full" />
           <DownloadButton song={song} size="sm" />
+          <button
+            onClick={handleAddToPlaylist}
+            className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-primary transition-colors"
+          >
+            <ListPlus className="w-4 h-4" />
+          </button>
         </div>
         
         {/* Downloaded badge */}
@@ -120,6 +136,28 @@ const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
           {song.artist}
         </p>
       </div>
+
+      {/* Add to Playlist Modal */}
+      <AddToPlaylistModal
+        isOpen={showAddToPlaylist}
+        onClose={() => setShowAddToPlaylist(false)}
+        song={song}
+        onCreateNew={() => {
+          setShowAddToPlaylist(false);
+          setShowCreatePlaylist(true);
+        }}
+      />
+
+      {/* Create Playlist Modal */}
+      <CreatePlaylistModal
+        isOpen={showCreatePlaylist}
+        onClose={() => setShowCreatePlaylist(false)}
+        onCreated={() => {
+          setShowCreatePlaylist(false);
+          // Re-open add to playlist modal after creating
+          setShowAddToPlaylist(true);
+        }}
+      />
     </div>
   );
 });

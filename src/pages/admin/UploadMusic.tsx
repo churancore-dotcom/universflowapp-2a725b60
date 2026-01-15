@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Music, Image, X, Check, Loader2, AlertCircle, Link, Globe, Youtube, Sparkles } from 'lucide-react';
+import { Upload, Music, Image, X, Check, Loader2, AlertCircle, Link, Globe, Youtube, Sparkles, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-
+import { compressImage, getCompressionStats, formatBytes } from '@/lib/imageCompression';
 const genres = ['Pop', 'Rock', 'Hip Hop', 'R&B', 'Electronic', 'Jazz', 'Classical', 'Country', 'Indie', 'Metal', 'Phonk', 'Lo-Fi', 'Bollywood', 'Punjabi', 'Haryanvi'];
 const moods = ['Happy', 'Sad', 'Energetic', 'Calm', 'Romantic', 'Dark', 'Uplifting', 'Chill', 'Slow Reverb', 'Bass Boosted'];
 
@@ -48,6 +48,8 @@ const UploadMusic = () => {
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedUrl, setExtractedUrl] = useState<string | null>(null);
   const [detectedPlatform, setDetectedPlatform] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [compressionSaved, setCompressionSaved] = useState<{ savedBytes: number; savedPercent: number } | null>(null);
   
   const [metadata, setMetadata] = useState({
     title: '',
@@ -255,7 +257,7 @@ const UploadMusic = () => {
     }
   }, []);
 
-  const handleCoverDrop = useCallback((e: React.DragEvent) => {
+  const handleCoverDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingCover(false);
     const file = e.dataTransfer.files[0];
@@ -269,8 +271,28 @@ const UploadMusic = () => {
       }
       
       setValidationErrors(prev => prev.filter(e => e.type !== 'cover'));
-      setCoverFile(file);
-      setCoverPreview(URL.createObjectURL(file));
+      setIsCompressing(true);
+      
+      try {
+        const originalSize = file.size;
+        const compressed = await compressImage(file);
+        const stats = getCompressionStats(originalSize, compressed.size);
+        
+        setCoverFile(compressed);
+        setCoverPreview(URL.createObjectURL(compressed));
+        setCompressionSaved(stats);
+        
+        if (stats.savedPercent > 0) {
+          toast.success(`Image compressed: saved ${formatBytes(stats.savedBytes)} (${stats.savedPercent}%)`);
+        }
+      } catch (err) {
+        // Fallback to original if compression fails
+        setCoverFile(file);
+        setCoverPreview(URL.createObjectURL(file));
+        setCompressionSaved(null);
+      } finally {
+        setIsCompressing(false);
+      }
     }
   }, []);
 
@@ -295,7 +317,7 @@ const UploadMusic = () => {
     }
   };
 
-  const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const error = validateCoverFile(file);
@@ -306,8 +328,28 @@ const UploadMusic = () => {
       }
       
       setValidationErrors(prev => prev.filter(e => e.type !== 'cover'));
-      setCoverFile(file);
-      setCoverPreview(URL.createObjectURL(file));
+      setIsCompressing(true);
+      
+      try {
+        const originalSize = file.size;
+        const compressed = await compressImage(file);
+        const stats = getCompressionStats(originalSize, compressed.size);
+        
+        setCoverFile(compressed);
+        setCoverPreview(URL.createObjectURL(compressed));
+        setCompressionSaved(stats);
+        
+        if (stats.savedPercent > 0) {
+          toast.success(`Image compressed: saved ${formatBytes(stats.savedBytes)} (${stats.savedPercent}%)`);
+        }
+      } catch (err) {
+        // Fallback to original if compression fails
+        setCoverFile(file);
+        setCoverPreview(URL.createObjectURL(file));
+        setCompressionSaved(null);
+      } finally {
+        setIsCompressing(false);
+      }
     }
   };
 
@@ -403,6 +445,7 @@ const UploadMusic = () => {
         setUrlValidated(false);
         setExtractedUrl(null);
         setDetectedPlatform(null);
+        setCompressionSaved(null);
         setMetadata({ title: '', artist: '', album: '', genre: '', mood: '', bpm: '' });
         setUploadProgress(0);
         setIsUploading(false);
@@ -496,7 +539,15 @@ const UploadMusic = () => {
 
           {/* Cover Upload Card */}
           <div className="ios-card p-4">
-            <Label className="text-sm font-medium mb-3 block">Cover Art</Label>
+            <div className="flex items-center justify-between mb-3">
+              <Label className="text-sm font-medium">Cover Art</Label>
+              {compressionSaved && compressionSaved.savedPercent > 0 && (
+                <div className="flex items-center gap-1 text-xs text-green-500">
+                  <Zap className="w-3 h-3" />
+                  <span>Saved {compressionSaved.savedPercent}%</span>
+                </div>
+              )}
+            </div>
             <div
               className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-colors ${
                 isDraggingCover ? 'border-accent bg-accent/5' :
@@ -513,21 +564,31 @@ const UploadMusic = () => {
                 onChange={handleCoverSelect}
                 className="absolute inset-0 opacity-0 cursor-pointer"
               />
-              {coverPreview ? (
+              {isCompressing ? (
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Compressing image...</p>
+                </div>
+              ) : coverPreview ? (
                 <div className="relative inline-block">
                   <img src={coverPreview} alt="Cover" className="w-24 h-24 rounded-xl object-cover mx-auto" />
                   <button
-                    onClick={(e) => { e.stopPropagation(); setCoverFile(null); setCoverPreview(null); }}
+                    onClick={(e) => { e.stopPropagation(); setCoverFile(null); setCoverPreview(null); setCompressionSaved(null); }}
                     className="absolute -top-2 -right-2 p-1 bg-destructive rounded-full"
                   >
                     <X className="w-3 h-3" />
                   </button>
+                  {coverFile && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {formatBytes(coverFile.size)}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div>
                   <Image className="w-10 h-10 mx-auto mb-2 text-muted-foreground/50" />
                   <p className="font-medium text-sm">Drop cover image here</p>
-                  <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WebP</p>
+                  <p className="text-xs text-muted-foreground mt-1">Auto-compressed to WebP</p>
                 </div>
               )}
             </div>
@@ -606,9 +667,17 @@ const UploadMusic = () => {
 
           {/* Cover Image Card - File Upload OR URL */}
           <div className="ios-card p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Image className="w-4 h-4 text-accent" />
-              <Label className="text-sm font-medium">Cover Image</Label>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Image className="w-4 h-4 text-accent" />
+                <Label className="text-sm font-medium">Cover Image</Label>
+              </div>
+              {compressionSaved && compressionSaved.savedPercent > 0 && (
+                <div className="flex items-center gap-1 text-xs text-green-500">
+                  <Zap className="w-3 h-3" />
+                  <span>Saved {compressionSaved.savedPercent}%</span>
+                </div>
+              )}
             </div>
             
             {/* Cover File Upload */}
@@ -628,21 +697,29 @@ const UploadMusic = () => {
                 onChange={handleCoverSelect}
                 className="absolute inset-0 opacity-0 cursor-pointer"
               />
-              {coverPreview ? (
+              {isCompressing ? (
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <p className="text-xs text-muted-foreground">Compressing...</p>
+                </div>
+              ) : coverPreview ? (
                 <div className="relative inline-block">
                   <img src={coverPreview} alt="Cover" className="w-20 h-20 rounded-xl object-cover mx-auto" />
                   <button
-                    onClick={(e) => { e.stopPropagation(); setCoverFile(null); setCoverPreview(null); }}
+                    onClick={(e) => { e.stopPropagation(); setCoverFile(null); setCoverPreview(null); setCompressionSaved(null); }}
                     className="absolute -top-2 -right-2 p-1 bg-destructive rounded-full"
                   >
                     <X className="w-3 h-3" />
                   </button>
+                  {coverFile && (
+                    <p className="text-xs text-muted-foreground mt-2">{formatBytes(coverFile.size)}</p>
+                  )}
                 </div>
               ) : (
                 <div>
                   <Image className="w-8 h-8 mx-auto mb-1.5 text-muted-foreground/50" />
                   <p className="font-medium text-sm">Tap to select or drop image</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">JPG, PNG, WebP</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Auto-compressed to WebP</p>
                 </div>
               )}
             </div>

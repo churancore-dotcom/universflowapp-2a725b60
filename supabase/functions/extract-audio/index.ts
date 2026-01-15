@@ -5,26 +5,31 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// List of public cobalt API instances (community-maintained)
+// List of public cobalt API instances (community-maintained, updated for v11 API)
+// These instances are from https://instances.cobalt.best/ and support the new API format
 const COBALT_INSTANCES = [
-  'https://api.cobalt.tools',
-  'https://cobalt-api.hyper.lol',
-  'https://co.eepy.today',
+  'https://cobalt-api.meowing.de',
+  'https://cobalt-backend.canine.tools',
+  'https://kityune.imput.net',
+  'https://nachos.imput.net',
+  'https://sun.imput.net',
 ];
 
 interface CobaltResponse {
   status: 'tunnel' | 'redirect' | 'picker' | 'error' | 'local-processing';
   url?: string;
   filename?: string;
-  error?: string;
+  error?: { code: string; context?: { service?: string; limit?: number } };
   picker?: Array<{ url: string; type: string }>;
-  audio?: { url: string };
+  audio?: string;
+  audioFilename?: string;
 }
 
 async function tryExtractWithInstance(instanceUrl: string, mediaUrl: string): Promise<CobaltResponse | null> {
   try {
     console.log(`Trying cobalt instance: ${instanceUrl}`);
     
+    // The v11 API uses the root endpoint, not /api/json
     const response = await fetch(instanceUrl, {
       method: 'POST',
       headers: {
@@ -37,11 +42,20 @@ async function tryExtractWithInstance(instanceUrl: string, mediaUrl: string): Pr
         downloadMode: 'audio',
         audioFormat: 'mp3',
         audioBitrate: '320',
+        filenameStyle: 'basic',
       }),
     });
 
+    console.log(`Instance ${instanceUrl} returned status ${response.status}`);
+
     if (!response.ok) {
-      console.log(`Instance ${instanceUrl} returned status ${response.status}`);
+      // Try to get error details
+      try {
+        const errorData = await response.json();
+        console.log(`Error response from ${instanceUrl}:`, JSON.stringify(errorData));
+      } catch {
+        console.log(`Could not parse error response from ${instanceUrl}`);
+      }
       return null;
     }
 
@@ -106,31 +120,31 @@ serve(async (req) => {
 
     // Try each cobalt instance until one works
     let result: CobaltResponse | null = null;
+    let lastError: string | null = null;
     
     for (const instance of COBALT_INSTANCES) {
       result = await tryExtractWithInstance(instance, url);
-      if (result && result.status !== 'error') {
+      if (result) {
+        if (result.status === 'error') {
+          // Store the error but try the next instance
+          lastError = result.error?.code || 'Unknown error';
+          console.log(`Instance returned error: ${lastError}, trying next...`);
+          continue;
+        }
+        // Got a successful result
         break;
       }
     }
 
-    if (!result) {
+    if (!result || result.status === 'error') {
+      const errorMessage = lastError || 'Failed to extract audio. All extraction servers are unavailable or protected.';
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to extract audio. All extraction servers are unavailable.',
+          error: errorMessage,
           platform,
+          hint: 'Try using a direct audio link instead, or the service may require authentication.',
         }),
         { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (result.status === 'error') {
-      return new Response(
-        JSON.stringify({ 
-          error: result.error || 'Failed to extract audio from this URL',
-          platform,
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -140,12 +154,28 @@ serve(async (req) => {
 
     if (result.status === 'tunnel' || result.status === 'redirect') {
       audioUrl = result.url || null;
-    } else if (result.status === 'picker' && result.picker) {
-      // Find the first audio item or use the first item
-      const audioItem = result.picker.find(item => item.type === 'audio') || result.picker[0];
-      audioUrl = audioItem?.url || null;
-    } else if (result.audio?.url) {
-      audioUrl = result.audio.url;
+    } else if (result.status === 'picker') {
+      // For picker responses, check for audio field or find audio in picker items
+      if (result.audio) {
+        audioUrl = result.audio;
+        if (result.audioFilename) {
+          filename = result.audioFilename;
+        }
+      } else if (result.picker) {
+        // Find the first audio item or use the first video item
+        const audioItem = result.picker.find(item => item.type === 'audio');
+        const videoItem = result.picker[0];
+        audioUrl = audioItem?.url || videoItem?.url || null;
+      }
+    } else if (result.status === 'local-processing') {
+      // For local-processing, we can't handle this server-side
+      return new Response(
+        JSON.stringify({ 
+          error: 'This content requires local processing which is not supported. Try a different URL or platform.',
+          platform,
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     if (!audioUrl) {

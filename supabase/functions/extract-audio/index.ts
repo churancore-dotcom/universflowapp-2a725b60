@@ -29,16 +29,35 @@ interface PipedResponse {
   message?: string;
 }
 
-// Fallback instances if dynamic fetch fails
-const FALLBACK_INSTANCES = [
-  'https://api.piped.private.coffee',
+// Comprehensive list of Piped API instances
+// Sources: https://github.com/TeamPiped/Piped/wiki/Instances
+const PIPED_INSTANCES = [
+  // Primary instances (most reliable)
   'https://pipedapi.kavin.rocks',
+  'https://api.piped.private.coffee',
   'https://pipedapi.tokhmi.xyz',
   'https://pipedapi.moomoo.me',
+  'https://piapi.ggtyler.dev',
   'https://api-piped.mha.fi',
   'https://piped-api.garudalinux.org',
   'https://pipedapi.rivo.lol',
-  'https://piapi.ggtyler.dev',
+  // Secondary instances
+  'https://pipedapi.syncpundit.io',
+  'https://pipedapi.colinslegacy.com',
+  'https://piped-api.lunar.icu',
+  'https://ytapi.dc09.ru',
+  'https://watchapi.whatever.social',
+  'https://pipedapi.palveluntarjoaja.eu',
+  'https://pipedapi.smnz.de',
+  'https://pipedapi.in.projectsegfau.lt',
+  'https://pipedapi.leptons.xyz',
+  'https://piped-api.hostux.net',
+  'https://pipedapi.osphost.fi',
+  'https://pipedapi.drgns.space',
+  'https://piped-api.cfe.re',
+  'https://pipedapi.darkness.services',
+  'https://pa.mint.lgbt',
+  'https://api.piped.yt',
 ];
 
 function extractVideoId(url: string): string | null {
@@ -80,43 +99,11 @@ function isPlaylistUrl(url: string): boolean {
   return url.includes('playlist?list=') || (url.includes('list=') && !url.includes('v='));
 }
 
-// Fetch instances dynamically from official API
-async function fetchPipedInstances(): Promise<string[]> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    
-    const response = await fetch('https://piped-instances.kavin.rocks/', {
-      signal: controller.signal,
-      headers: { 'Accept': 'application/json' }
-    });
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      console.log('Failed to fetch instances list, using fallback');
-      return FALLBACK_INSTANCES;
-    }
-    
-    const instances: PipedInstance[] = await response.json();
-    
-    // Sort by uptime and take top instances
-    const sortedInstances = instances
-      .filter(i => i.api_url && i.uptime_24h && i.uptime_24h > 90)
-      .sort((a, b) => (b.uptime_24h || 0) - (a.uptime_24h || 0))
-      .slice(0, 10)
-      .map(i => i.api_url);
-    
-    if (sortedInstances.length === 0) {
-      console.log('No good instances found, using fallback');
-      return FALLBACK_INSTANCES;
-    }
-    
-    console.log(`Found ${sortedInstances.length} working Piped instances`);
-    return sortedInstances;
-  } catch (error) {
-    console.log('Error fetching instances:', error);
-    return FALLBACK_INSTANCES;
-  }
+// Get Piped instances - use hardcoded list directly (more reliable than dynamic fetch)
+function getPipedInstances(): string[] {
+  // Shuffle instances to distribute load
+  const shuffled = [...PIPED_INSTANCES].sort(() => Math.random() - 0.5);
+  return shuffled;
 }
 
 async function tryPipedInstance(
@@ -188,28 +175,28 @@ async function extractFromYouTube(videoId: string): Promise<{
   title?: string;
   error?: string;
 }> {
-  const instances = await fetchPipedInstances();
+  const instances = getPipedInstances();
   console.log(`Trying ${instances.length} Piped instances in parallel batches...`);
   
-  // Try in batches of 3 for efficiency
-  const batchSize = 3;
+  // Try in batches of 4 for efficiency
+  const batchSize = 4;
   
   for (let i = 0; i < instances.length; i += batchSize) {
-    const batch = instances.slice(i, i + batchSize);
-    console.log(`Batch ${Math.floor(i/batchSize) + 1}: ${batch.map(u => new URL(u).hostname).join(', ')}`);
+    const batch: string[] = instances.slice(i, i + batchSize);
+    console.log(`Batch ${Math.floor(i/batchSize) + 1}: ${batch.map((u: string) => new URL(u).hostname).join(', ')}`);
     
     const results = await Promise.all(
-      batch.map(instance => tryPipedInstance(instance, videoId))
+      batch.map((instance: string) => tryPipedInstance(instance, videoId))
     );
     
     // Return first successful result
-    const success = results.find(r => r.success);
+    const success = results.find((r: { success: boolean }) => r.success);
     if (success) {
       return success;
     }
     
     // Log errors for debugging
-    results.forEach((r, idx) => {
+    results.forEach((r: { success: boolean; error?: string }, idx: number) => {
       if (!r.success) {
         console.log(`  ✗ ${new URL(batch[idx]).hostname}: ${r.error}`);
       }

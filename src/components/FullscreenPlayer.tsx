@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence, PanInfo, useSpring, useTransform, useMotionValue } from 'framer-motion';
 import { Play, Pause, SkipBack, SkipForward, Volume2, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Waves } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
+import { useNavigate } from 'react-router-dom';
 import { Slider } from '@/components/ui/slider';
 import { iosSpring, iosBounce } from '@/lib/animations';
 import DownloadButton from './DownloadButton';
@@ -104,6 +105,7 @@ const FullscreenPlayer = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
+  const navigate = useNavigate();
 
   // Play button rotation for smooth icon transition
   const playRotation = useMotionValue(0);
@@ -285,12 +287,29 @@ const FullscreenPlayer = () => {
                   >
                     {currentSong.title}
                   </motion.h2>
-                  <motion.p
-                    className="mt-1 text-xl text-primary font-medium"
+                  <motion.div
+                    className={`mt-1 flex items-center gap-2 ${currentSong.artist_id ? 'cursor-pointer' : ''}`}
                     layoutId="song-artist"
+                    onClick={() => {
+                      if (currentSong.artist_id) {
+                        setExpanded(false);
+                        navigate(`/artist/${currentSong.artist_id}`);
+                      }
+                    }}
+                    whileHover={currentSong.artist_id ? { scale: 1.02 } : {}}
+                    whileTap={currentSong.artist_id ? { scale: 0.98 } : {}}
                   >
-                    {currentSong.artist}
-                  </motion.p>
+                    {currentSong.artist_photo_url && (
+                      <img 
+                        src={currentSong.artist_photo_url} 
+                        alt={currentSong.artist}
+                        className="w-7 h-7 rounded-full object-cover"
+                      />
+                    )}
+                    <span className="text-xl text-primary font-medium hover:underline">
+                      {currentSong.artist}
+                    </span>
+                  </motion.div>
                 </div>
                 <div className="flex items-center gap-2">
                   <DownloadButton song={currentSong} size="md" />

@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, SkipForward, X } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
+import { useNavigate } from 'react-router-dom';
 import { iosBounce } from '@/lib/animations';
 import LikeButton from './LikeButton';
 
@@ -36,8 +37,16 @@ const MiniPlayer = memo(() => {
     stopSong,
     setExpanded
   } = usePlayer();
+  const navigate = useNavigate();
 
   if (!currentSong) return null;
+
+  const handleArtistClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentSong.artist_id) {
+      navigate(`/artist/${currentSong.artist_id}`);
+    }
+  };
 
   const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
 
@@ -96,9 +105,21 @@ const MiniPlayer = memo(() => {
               <p className="font-medium text-[15px] truncate leading-tight">
                 {currentSong.title}
               </p>
-              <p className="text-[13px] text-muted-foreground truncate mt-0.5">
-                {currentSong.artist}
-              </p>
+              <div 
+                className={`flex items-center gap-1.5 mt-0.5 ${currentSong.artist_id ? 'cursor-pointer' : ''}`}
+                onClick={handleArtistClick}
+              >
+                {currentSong.artist_photo_url && (
+                  <img 
+                    src={currentSong.artist_photo_url} 
+                    alt={currentSong.artist}
+                    className="w-4 h-4 rounded-full object-cover flex-shrink-0"
+                  />
+                )}
+                <p className={`text-[13px] text-muted-foreground truncate ${currentSong.artist_id ? 'hover:text-primary transition-colors' : ''}`}>
+                  {currentSong.artist}
+                </p>
+              </div>
             </div>
           </motion.div>
 

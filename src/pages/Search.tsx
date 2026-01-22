@@ -45,20 +45,25 @@ const Search = () => {
     setSearching(true);
     const { data } = await supabase
       .from('songs')
-      .select('*')
+      .select('*, artists(id, name, photo_url)')
       .eq('is_visible', true)
       .or(`title.ilike.%${query}%,artist.ilike.%${query}%,album.ilike.%${query}%`)
       .limit(20);
 
     if (data) {
-      setResults(data.map(s => ({
-        id: s.id,
-        title: s.title,
-        artist: s.artist,
-        album: s.album || undefined,
-        cover_url: s.cover_url || undefined,
-        audio_url: s.audio_url,
-      })));
+      setResults(data.map(s => {
+        const artistData = s.artists as { id: string; name: string; photo_url: string | null } | null;
+        return {
+          id: s.id,
+          title: s.title,
+          artist: s.artist,
+          album: s.album || undefined,
+          cover_url: s.cover_url || undefined,
+          audio_url: s.audio_url,
+          artist_id: artistData?.id || s.artist_id || undefined,
+          artist_photo_url: artistData?.photo_url || undefined,
+        };
+      }));
     }
     setSearching(false);
   };
@@ -68,20 +73,25 @@ const Search = () => {
     setSearching(true);
     const { data } = await supabase
       .from('songs')
-      .select('*')
+      .select('*, artists(id, name, photo_url)')
       .eq('is_visible', true)
       .ilike('genre', `%${genre}%`)
       .limit(20);
 
     if (data) {
-      setResults(data.map(s => ({
-        id: s.id,
-        title: s.title,
-        artist: s.artist,
-        album: s.album || undefined,
-        cover_url: s.cover_url || undefined,
-        audio_url: s.audio_url,
-      })));
+      setResults(data.map(s => {
+        const artistData = s.artists as { id: string; name: string; photo_url: string | null } | null;
+        return {
+          id: s.id,
+          title: s.title,
+          artist: s.artist,
+          album: s.album || undefined,
+          cover_url: s.cover_url || undefined,
+          audio_url: s.audio_url,
+          artist_id: artistData?.id || s.artist_id || undefined,
+          artist_photo_url: artistData?.photo_url || undefined,
+        };
+      }));
     }
     setSearching(false);
   };

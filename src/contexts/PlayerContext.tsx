@@ -10,6 +10,8 @@ export interface Song {
   cover_url?: string;
   audio_url: string;
   duration?: number;
+  artist_id?: string;
+  artist_photo_url?: string;
 }
 
 interface PlayerContextType {

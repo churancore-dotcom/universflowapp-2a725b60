@@ -67,7 +67,7 @@ const PlaylistDetail = () => {
         .single(),
       supabase
         .from('playlist_songs')
-        .select('*, songs(*)')
+        .select('*, songs(*, artists(id, name, photo_url))')
         .eq('playlist_id', id)
         .order('position', { ascending: true }),
     ]);
@@ -77,17 +77,22 @@ const PlaylistDetail = () => {
     }
 
     if (songsRes.data) {
-      setSongs(songsRes.data.map(ps => ({
-        id: ps.songs.id,
-        title: ps.songs.title,
-        artist: ps.songs.artist,
-        album: ps.songs.album || undefined,
-        cover_url: ps.songs.cover_url || undefined,
-        audio_url: ps.songs.audio_url,
-        duration: ps.songs.duration || undefined,
-        position: ps.position,
-        playlist_song_id: ps.id,
-      })));
+      setSongs(songsRes.data.map(ps => {
+        const artistData = (ps.songs as any)?.artists as { id: string; name: string; photo_url: string | null } | null;
+        return {
+          id: ps.songs.id,
+          title: ps.songs.title,
+          artist: ps.songs.artist,
+          album: ps.songs.album || undefined,
+          cover_url: ps.songs.cover_url || undefined,
+          audio_url: ps.songs.audio_url,
+          duration: ps.songs.duration || undefined,
+          position: ps.position,
+          playlist_song_id: ps.id,
+          artist_id: artistData?.id || ps.songs.artist_id || undefined,
+          artist_photo_url: artistData?.photo_url || undefined,
+        };
+      }));
     }
 
     setLoading(false);

@@ -58,20 +58,25 @@ const Home = () => {
   const fetchSongs = useCallback(async () => {
     const { data } = await supabase
       .from('songs')
-      .select('*')
+      .select('*, artists(id, name, photo_url)')
       .eq('is_visible', true)
       .order('created_at', { ascending: false });
 
     if (data) {
-      setSongs(data.map(s => ({
-        id: s.id,
-        title: s.title,
-        artist: s.artist,
-        album: s.album || undefined,
-        cover_url: s.cover_url || undefined,
-        audio_url: s.audio_url,
-        duration: s.duration || undefined,
-      })));
+      setSongs(data.map(s => {
+        const artistData = s.artists as { id: string; name: string; photo_url: string | null } | null;
+        return {
+          id: s.id,
+          title: s.title,
+          artist: s.artist,
+          album: s.album || undefined,
+          cover_url: s.cover_url || undefined,
+          audio_url: s.audio_url,
+          duration: s.duration || undefined,
+          artist_id: artistData?.id || s.artist_id || undefined,
+          artist_photo_url: artistData?.photo_url || undefined,
+        };
+      }));
     }
     setLoading(false);
   }, []);

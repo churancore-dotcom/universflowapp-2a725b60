@@ -21,23 +21,28 @@ const FavoritesWidget = () => {
   const fetchFavorites = async () => {
     if (!user) return;
 
-    // Get top 5 liked songs
+    // Get top 5 liked songs with artist data
     const { data } = await supabase
       .from('user_library')
-      .select('*, songs(*)')
+      .select('*, songs(*, artists(id, name, photo_url))')
       .eq('user_id', user.id)
       .order('added_at', { ascending: false })
       .limit(5);
 
     if (data) {
-      const songs = data.map(item => ({
-        id: item.songs.id,
-        title: item.songs.title,
-        artist: item.songs.artist,
-        album: item.songs.album || undefined,
-        cover_url: item.songs.cover_url || undefined,
-        audio_url: item.songs.audio_url,
-      }));
+      const songs = data.map(item => {
+        const artistData = (item.songs as any)?.artists as { id: string; name: string; photo_url: string | null } | null;
+        return {
+          id: item.songs.id,
+          title: item.songs.title,
+          artist: item.songs.artist,
+          album: item.songs.album || undefined,
+          cover_url: item.songs.cover_url || undefined,
+          audio_url: item.songs.audio_url,
+          artist_id: artistData?.id || item.songs.artist_id || undefined,
+          artist_photo_url: artistData?.photo_url || undefined,
+        };
+      });
       setFavorites(songs);
     }
     setLoading(false);

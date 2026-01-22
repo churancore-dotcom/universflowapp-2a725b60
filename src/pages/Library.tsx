@@ -49,12 +49,12 @@ const Library = () => {
     const [liked, recent, userPlaylists, allSongs] = await Promise.all([
       supabase
         .from('user_library')
-        .select('*, songs(*)')
+        .select('*, songs(*, artists(id, name, photo_url))')
         .eq('user_id', user.id)
         .order('added_at', { ascending: false }),
       supabase
         .from('recently_played')
-        .select('*, songs(*)')
+        .select('*, songs(*, artists(id, name, photo_url))')
         .eq('user_id', user.id)
         .order('played_at', { ascending: false })
         .limit(20),
@@ -70,20 +70,26 @@ const Library = () => {
     ]);
 
     if (liked.data) {
-      setLikedSongs(liked.data.map(l => ({
-        id: l.songs.id,
-        title: l.songs.title,
-        artist: l.songs.artist,
-        album: l.songs.album || undefined,
-        cover_url: l.songs.cover_url || undefined,
-        audio_url: l.songs.audio_url,
-      })));
+      setLikedSongs(liked.data.map(l => {
+        const artistData = (l.songs as any)?.artists as { id: string; name: string; photo_url: string | null } | null;
+        return {
+          id: l.songs.id,
+          title: l.songs.title,
+          artist: l.songs.artist,
+          album: l.songs.album || undefined,
+          cover_url: l.songs.cover_url || undefined,
+          audio_url: l.songs.audio_url,
+          artist_id: artistData?.id || l.songs.artist_id || undefined,
+          artist_photo_url: artistData?.photo_url || undefined,
+        };
+      }));
     }
 
     if (recent.data) {
       const uniqueSongs = new Map();
       recent.data.forEach(r => {
         if (!uniqueSongs.has(r.songs.id)) {
+          const artistData = (r.songs as any)?.artists as { id: string; name: string; photo_url: string | null } | null;
           uniqueSongs.set(r.songs.id, {
             id: r.songs.id,
             title: r.songs.title,
@@ -91,6 +97,8 @@ const Library = () => {
             album: r.songs.album || undefined,
             cover_url: r.songs.cover_url || undefined,
             audio_url: r.songs.audio_url,
+            artist_id: artistData?.id || r.songs.artist_id || undefined,
+            artist_photo_url: artistData?.photo_url || undefined,
           });
         }
       });

@@ -2,6 +2,7 @@ import React, { memo, useCallback, useMemo, useState } from 'react';
 import { Play, Pause, ListPlus } from 'lucide-react';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
+import { useNavigate } from 'react-router-dom';
 import DownloadButton from './DownloadButton';
 import LikeButton from './LikeButton';
 import AddToPlaylistModal from './AddToPlaylistModal';
@@ -32,12 +33,20 @@ AudioWave.displayName = 'AudioWave';
 const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
   const { currentSong, isPlaying, playSong, togglePlay } = usePlayer();
   const { isDownloaded, getDownloadedUrl } = useDownloads();
+  const navigate = useNavigate();
   
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
   
   const isCurrentSong = useMemo(() => currentSong?.id === song.id, [currentSong?.id, song.id]);
   const downloaded = useMemo(() => isDownloaded(song.id), [isDownloaded, song.id]);
+
+  const handleArtistClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (song.artist_id) {
+      navigate(`/artist/${song.artist_id}`);
+    }
+  }, [song.artist_id, navigate]);
 
   const handleClick = useCallback(() => {
     if (isCurrentSong) {
@@ -132,9 +141,21 @@ const SongCard = memo(({ song, index = 0 }: SongCardProps) => {
         <p className={`font-semibold text-[14px] truncate leading-tight ${isCurrentSong ? 'text-primary' : 'text-foreground'}`}>
           {song.title}
         </p>
-        <p className="text-[12px] text-muted-foreground/80 truncate mt-0.5 font-medium">
-          {song.artist}
-        </p>
+        <div 
+          className="flex items-center gap-1.5 mt-0.5 cursor-pointer group/artist"
+          onClick={handleArtistClick}
+        >
+          {song.artist_photo_url && (
+            <img 
+              src={song.artist_photo_url} 
+              alt={song.artist}
+              className="w-4 h-4 rounded-full object-cover"
+            />
+          )}
+          <p className={`text-[12px] text-muted-foreground/80 truncate font-medium ${song.artist_id ? 'group-hover/artist:text-primary transition-colors' : ''}`}>
+            {song.artist}
+          </p>
+        </div>
       </div>
 
       {/* Add to Playlist Modal */}

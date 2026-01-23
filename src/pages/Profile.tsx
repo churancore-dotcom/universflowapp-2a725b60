@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Settings, LogOut, Shield, Music, Heart, Clock, ChevronRight, BarChart3, Users, Zap, Gift, Crown, Coffee } from 'lucide-react';
+import { User, Mail, Settings, LogOut, Shield, Music, Heart, Clock, ChevronRight, BarChart3, Users, Zap, Gift, Crown, Coffee, Sparkles, Headphones, MessageCircle, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +26,7 @@ const Profile = () => {
   const [showFriendsManager, setShowFriendsManager] = useState(false);
   const [showDedications, setShowDedications] = useState(false);
   const [showCrossfade, setShowCrossfade] = useState(false);
+  const [showAudioSettings, setShowAudioSettings] = useState(false);
 
   useEffect(() => {
     if (user) fetchStats();
@@ -110,24 +111,58 @@ const Profile = () => {
             <motion.div 
               className="relative w-20 h-20 rounded-full flex items-center justify-center"
               style={{
-                background: 'linear-gradient(135deg, hsl(211 100% 50%), hsl(328 100% 54%))',
-                boxShadow: '0 8px 30px -5px hsl(211 100% 50% / 0.4)',
+                background: isPremium 
+                  ? 'linear-gradient(135deg, #fbbf24, #f59e0b)'
+                  : 'linear-gradient(135deg, hsl(211 100% 50%), hsl(328 100% 54%))',
+                boxShadow: isPremium 
+                  ? '0 8px 30px -5px rgba(251, 191, 36, 0.5)'
+                  : '0 8px 30px -5px hsl(211 100% 50% / 0.4)',
               }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               transition={iosBounce}
             >
               <User className="w-10 h-10 text-white" />
+              {isPremium && (
+                <motion.div 
+                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center"
+                  style={{
+                    background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                    border: '2px solid rgba(28, 28, 30, 0.9)',
+                  }}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={iosBounce}
+                >
+                  <Crown className="w-3.5 h-3.5 text-white" />
+                </motion.div>
+              )}
             </motion.div>
             <div className="flex-1 min-w-0">
-              <motion.h2 
-                className="text-xl font-bold truncate"
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ ...iosSpring, delay: 0.15 }}
-              >
-                {user?.email?.split('@')[0] || 'User'}
-              </motion.h2>
+              <div className="flex items-center gap-2">
+                <motion.h2 
+                  className="text-xl font-bold truncate"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ ...iosSpring, delay: 0.15 }}
+                >
+                  {user?.email?.split('@')[0] || 'User'}
+                </motion.h2>
+                {isPremium && (
+                  <motion.span 
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                    style={{
+                      background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                      color: '#000',
+                    }}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ ...iosBounce, delay: 0.2 }}
+                  >
+                    <Star className="w-2.5 h-2.5" /> PREMIUM
+                  </motion.span>
+                )}
+              </div>
               <motion.p 
                 className="text-sm text-muted-foreground truncate flex items-center gap-2 mt-1"
                 initial={{ opacity: 0 }}
@@ -276,6 +311,93 @@ const Profile = () => {
             <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </motion.button>
         </motion.div>
+
+        {/* Premium Exclusive Section - Only visible for premium users */}
+        {isPremium && (
+          <motion.div
+            className="rounded-2xl overflow-hidden mb-6"
+            style={{
+              background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.05))',
+              border: '1px solid rgba(251, 191, 36, 0.2)',
+            }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...iosSpring, delay: 0.3 }}
+          >
+            <div className="px-5 py-3 border-b border-amber-500/10">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span className="text-sm font-semibold text-amber-400">Premium Exclusives</span>
+              </div>
+            </div>
+
+            <motion.button
+              className="w-full flex items-center gap-4 px-5 py-4 text-left border-b border-white/[0.06]"
+              onClick={() => navigate('/library?filter=exclusive')}
+              whileTap={{ scale: 0.98, backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
+            >
+              <motion.div 
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)' }}
+                whileHover={{ scale: 1.1 }}
+                transition={iosBounce}
+              >
+                <Music className="w-5 h-5 text-white" />
+              </motion.div>
+              <div className="flex-1">
+                <span className="font-semibold block">Exclusive Content</span>
+                <span className="text-xs text-muted-foreground">Premium-only songs & early releases</span>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
+            </motion.button>
+
+            <motion.button
+              className="w-full flex items-center gap-4 px-5 py-4 text-left border-b border-white/[0.06]"
+              onClick={() => setShowAudioSettings(true)}
+              whileTap={{ scale: 0.98, backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
+            >
+              <motion.div 
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: 'linear-gradient(135deg, #06b6d4, #0891b2)' }}
+                whileHover={{ scale: 1.1 }}
+                transition={iosBounce}
+              >
+                <Headphones className="w-5 h-5 text-white" />
+              </motion.div>
+              <div className="flex-1">
+                <span className="font-semibold block">Advanced Audio</span>
+                <span className="text-xs text-muted-foreground">HQ audio, equalizer & spatial sound</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-cyan-500/20 text-cyan-400 shrink-0">
+                Lossless
+              </span>
+              <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
+            </motion.button>
+
+            <motion.button
+              className="w-full flex items-center gap-4 px-5 py-4 text-left"
+              onClick={() => navigate('/support?tab=priority')}
+              whileTap={{ scale: 0.98, backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
+            >
+              <motion.div 
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
+                whileHover={{ scale: 1.1 }}
+                transition={iosBounce}
+              >
+                <MessageCircle className="w-5 h-5 text-white" />
+              </motion.div>
+              <div className="flex-1">
+                <span className="font-semibold block">Priority Support</span>
+                <span className="text-xs text-muted-foreground">Direct chat & faster responses</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/20 text-emerald-400 shrink-0">
+                24/7
+              </span>
+              <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
+            </motion.button>
+          </motion.div>
+        )}
 
         {/* Menu Items - iOS style list */}
         <motion.div

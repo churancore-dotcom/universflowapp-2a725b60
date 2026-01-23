@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Settings, LogOut, Shield, Music, Heart, Clock, ChevronRight, BarChart3, Users, Zap, Gift } from 'lucide-react';
+import { User, Mail, Settings, LogOut, Shield, Music, Heart, Clock, ChevronRight, BarChart3, Users, Zap, Gift, Crown, Coffee } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePremium } from '@/hooks/usePremium';
 import BottomNav from '@/components/BottomNav';
 import MiniPlayer from '@/components/MiniPlayer';
 import FullscreenPlayer from '@/components/FullscreenPlayer';
@@ -17,6 +18,7 @@ import { iosSpring, iosBounce } from '@/lib/animations';
 
 const Profile = () => {
   const { user, isAdmin, signOut } = useAuth();
+  const { isPremium } = usePremium();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ likedSongs: 0, recentPlays: 0, playlists: 0 });
   const [showStats, setShowStats] = useState(false);
@@ -192,6 +194,75 @@ const Profile = () => {
               </motion.div>
             );
           })}
+        </motion.div>
+
+        {/* Premium & Support Section */}
+        <motion.div
+          className="rounded-2xl overflow-hidden mb-6"
+          style={{
+            background: isPremium 
+              ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.1))'
+              : 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(168, 85, 247, 0.1))',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+          }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ ...iosSpring, delay: 0.25 }}
+        >
+          <motion.button
+            className="w-full flex items-center gap-4 px-5 py-4 text-left border-b border-white/[0.06]"
+            onClick={() => navigate('/support')}
+            whileTap={{ scale: 0.98, backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
+          >
+            <motion.div 
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{
+                background: isPremium 
+                  ? 'linear-gradient(135deg, #fbbf24, #f59e0b)'
+                  : 'linear-gradient(135deg, #8b5cf6, #a855f7)',
+              }}
+              whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
+              transition={iosBounce}
+            >
+              <Crown className="w-5 h-5 text-white" />
+            </motion.div>
+            <div className="flex-1">
+              <span className="font-semibold block">
+                {isPremium ? 'Premium Member' : 'Upgrade to Premium'}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {isPremium ? 'Manage your subscription' : 'Unlock all features'}
+              </span>
+            </div>
+            {isPremium && (
+              <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400">
+                Active
+              </span>
+            )}
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+          </motion.button>
+
+          <motion.button
+            className="w-full flex items-center gap-4 px-5 py-4 text-left"
+            onClick={() => navigate('/support')}
+            whileTap={{ scale: 0.98, backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
+          >
+            <motion.div 
+              className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, #ec4899, #f43f5e)',
+              }}
+              whileHover={{ scale: 1.1, rotate: [0, -5, 5, 0] }}
+              transition={iosBounce}
+            >
+              <Coffee className="w-5 h-5 text-white" />
+            </motion.div>
+            <div className="flex-1">
+              <span className="font-semibold block">Buy me a Coffee</span>
+              <span className="text-xs text-muted-foreground">Support the app development</span>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+          </motion.button>
         </motion.div>
 
         {/* Menu Items - iOS style list */}

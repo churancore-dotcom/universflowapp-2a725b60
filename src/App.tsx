@@ -65,7 +65,7 @@ const AnimatedRoutes = () => {
         <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
         <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
         <Route path="/playlist/:id" element={<ProtectedRoute><PlaylistDetail /></ProtectedRoute>} />
-        <Route path="/artist/:artistName" element={<ProtectedRoute><ArtistDetail /></ProtectedRoute>} />
+        <Route path="/artist/:artistId" element={<ProtectedRoute><ArtistDetail /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/add-friend/:shareCode" element={<AddFriend />} />

@@ -13,38 +13,55 @@ import DownloadButton from '@/components/DownloadButton';
 import { TabTransition } from '@/components/PageTransition';
 import { iosSpring, iosBounce } from '@/lib/animations';
 
+interface Artist {
+  id: string;
+  name: string;
+  bio: string | null;
+  photo_url: string | null;
+  genre: string | null;
+}
+
 const ArtistDetail = () => {
-  const { artistName } = useParams<{ artistName: string }>();
+  const { artistId } = useParams<{ artistId: string }>();
   const navigate = useNavigate();
   const { playSong, setQueue, currentSong, isPlaying } = usePlayer();
   const { getDownloadedUrl } = useDownloads();
+  const [artist, setArtist] = useState<Artist | null>(null);
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
-  const [artistCover, setArtistCover] = useState<string | null>(null);
-
-  const decodedArtistName = decodeURIComponent(artistName || '');
 
   useEffect(() => {
-    fetchArtistSongs();
-  }, [artistName]);
+    if (artistId) {
+      fetchArtistData();
+    }
+  }, [artistId]);
 
-  const fetchArtistSongs = async () => {
-    if (!decodedArtistName) return;
+  const fetchArtistData = async () => {
+    if (!artistId) return;
 
     setLoading(true);
     
-    // Normalize the artist name for matching (handle case + extra spaces)
-    const normalizedName = decodedArtistName.trim().replace(/\s+/g, ' ');
-    
-    const { data, error } = await supabase
+    // Fetch artist info
+    const { data: artistData } = await supabase
+      .from('artists')
+      .select('*')
+      .eq('id', artistId)
+      .single();
+
+    if (artistData) {
+      setArtist(artistData);
+    }
+
+    // Fetch songs linked to this artist via artist_id
+    const { data: songsData } = await supabase
       .from('songs')
       .select('*')
+      .eq('artist_id', artistId)
       .eq('is_visible', true)
-      .ilike('artist', normalizedName)
       .order('created_at', { ascending: false });
 
-    if (data && !error) {
-      const mappedSongs: Song[] = data.map(s => ({
+    if (songsData) {
+      const mappedSongs: Song[] = songsData.map(s => ({
         id: s.id,
         title: s.title,
         artist: s.artist,
@@ -54,12 +71,8 @@ const ArtistDetail = () => {
         duration: s.duration || undefined,
       }));
       setSongs(mappedSongs);
-      
-      // Use first song's cover as artist cover
-      if (mappedSongs.length > 0 && mappedSongs[0].cover_url) {
-        setArtistCover(mappedSongs[0].cover_url);
-      }
     }
+    
     setLoading(false);
   };
 
@@ -79,7 +92,6 @@ const ArtistDetail = () => {
   };
 
   const handlePlaySong = (song: Song, index: number) => {
-    // Set queue starting from this song
     const reorderedQueue = [...songs.slice(index), ...songs.slice(0, index)];
     setQueue(reorderedQueue);
     const offlineUrl = getDownloadedUrl(song.id);
@@ -110,7 +122,7 @@ const ArtistDetail = () => {
           <div 
             className="absolute inset-0 bg-gradient-to-b from-primary/30 via-primary/10 to-black"
             style={{
-              backgroundImage: artistCover ? `url(${artistCover})` : undefined,
+              backgroundImage: artist?.photo_url ? `url(${artist.photo_url})` : undefined,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               filter: 'blur(60px)',
@@ -138,8 +150,8 @@ const ArtistDetail = () => {
               animate={{ scale: 1, rotate: 0 }}
               transition={{ ...iosBounce, delay: 0.1 }}
             >
-              {artistCover ? (
-                <img src={artistCover} alt={decodedArtistName} className="w-full h-full object-cover" />
+              {artist?.photo_url ? (
+                <img src={artist.photo_url} alt={artist?.name || 'Artist'} className="w-full h-full object-cover" />
               ) : (
                 <User className="w-14 h-14 text-white/70" />
               )}
@@ -151,7 +163,7 @@ const ArtistDetail = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ ...iosSpring, delay: 0.2 }}
             >
-              {decodedArtistName}
+              {artist?.name || 'Unknown Artist'}
             </motion.h1>
             
             <motion.p

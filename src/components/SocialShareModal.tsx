@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, Copy, Check, Music } from 'lucide-react';
+import { X, Download, Copy, Check, Link2 } from 'lucide-react';
 import { Song } from '@/contexts/PlayerContext';
 import { toast } from 'sonner';
 import { iosSpring, iosBounce } from '@/lib/animations';
@@ -34,6 +34,7 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cardUrl, setCardUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedApp, setCopiedApp] = useState(false);
   const [generating, setGenerating] = useState(false);
   const appUrl = window.location.origin;
 
@@ -243,8 +244,15 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
   const copyLink = () => {
     navigator.clipboard.writeText(getSongLink());
     setCopied(true);
-    toast.success('Link copied! 🔗');
+    toast.success('Song link copied! 🔗');
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyAppLink = () => {
+    navigator.clipboard.writeText(appUrl);
+    setCopiedApp(true);
+    toast.success('App link copied! Share UniversFlow 🎵');
+    setTimeout(() => setCopiedApp(false), 2000);
   };
 
   const platforms = [
@@ -360,11 +368,11 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-3">
+                <div className="grid grid-cols-2 gap-3 mb-3">
                   <motion.button
                     onClick={handleDownload}
                     disabled={!cardUrl}
-                    className="flex-1 h-12 rounded-xl bg-white/10 font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="h-12 rounded-xl bg-white/10 font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     transition={iosBounce}
@@ -375,15 +383,27 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
                   
                   <motion.button
                     onClick={copyLink}
-                    className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2"
+                    className="h-12 rounded-xl bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     transition={iosBounce}
                   >
                     {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-                    {copied ? 'Copied!' : 'Copy Link'}
+                    {copied ? 'Copied!' : 'Copy Song Link'}
                   </motion.button>
                 </div>
+
+                {/* Copy App Link */}
+                <motion.button
+                  onClick={copyAppLink}
+                  className="w-full h-12 rounded-xl bg-white/5 hover:bg-white/10 font-medium flex items-center justify-center gap-2 transition-colors"
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={iosBounce}
+                >
+                  {copiedApp ? <Check className="w-5 h-5 text-green-400" /> : <Link2 className="w-5 h-5" />}
+                  {copiedApp ? 'App Link Copied!' : 'Copy App Link to Share'}
+                </motion.button>
               </div>
             </div>
           </motion.div>

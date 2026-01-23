@@ -43,7 +43,13 @@ const defaultBands: EQBand[] = [
   { frequency: 20000, gain: 0, label: '20kHz' },
 ];
 
-const FrequencySlider = memo(({ band, index, onChange }: { band: EQBand; index: number; onChange: (index: number, value: number) => void }) => {
+interface FrequencySliderProps {
+  band: EQBand;
+  index: number;
+  onChange: (index: number, value: number) => void;
+}
+
+function FrequencySliderComponent({ band, index, onChange }: FrequencySliderProps) {
   return (
     <div className="flex flex-col items-center gap-3">
       <span className="text-xs text-muted-foreground font-medium">{band.gain > 0 ? '+' : ''}{band.gain}dB</span>
@@ -61,8 +67,9 @@ const FrequencySlider = memo(({ band, index, onChange }: { band: EQBand; index: 
       <span className="text-[11px] text-muted-foreground/70">{band.label}</span>
     </div>
   );
-});
+}
 
+const FrequencySlider = memo(FrequencySliderComponent);
 FrequencySlider.displayName = 'FrequencySlider';
 
 const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {

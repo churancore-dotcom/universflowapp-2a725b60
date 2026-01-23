@@ -119,30 +119,61 @@ const MiniPlayer = memo(function MiniPlayer() {
           </div>
 
           <div className="flex items-center gap-3 p-2.5 pr-2">
-            {/* Album Art with playing indicator */}
-            <div className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 shadow-lg">
-              {currentSong.cover_url ? (
-                <img
-                  src={currentSong.cover_url}
-                  alt={currentSong.title}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                  draggable={false}
+            {/* Album Art with beat pulse animation */}
+            <div className="relative w-12 h-12 flex-shrink-0">
+              {/* Beat pulse glow behind artwork */}
+              {isPlaying && (
+                <motion.div
+                  className="absolute inset-0 rounded-xl"
+                  style={{
+                    background: 'radial-gradient(circle, rgba(250, 45, 72, 0.5) 0%, transparent 70%)',
+                  }}
+                  animate={{
+                    scale: [1, 1.4, 1],
+                    opacity: [0.6, 0.2, 0.6],
+                  }}
+                  transition={{
+                    duration: 0.8,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
                 />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
-                  <NowPlayingBars isPlaying={isPlaying} />
-                </div>
               )}
-              {isPlaying && currentSong.cover_url && (
-                <motion.div 
-                  className="absolute inset-0 bg-black/40 flex items-center justify-center"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <NowPlayingBars isPlaying={isPlaying} />
-                </motion.div>
-              )}
+              
+              <motion.div 
+                className="relative w-full h-full rounded-xl overflow-hidden shadow-lg z-10"
+                animate={isPlaying ? {
+                  scale: [1, 1.03, 1],
+                } : { scale: 1 }}
+                transition={isPlaying ? {
+                  duration: 0.6,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                } : { duration: 0.2 }}
+              >
+                {currentSong.cover_url ? (
+                  <img
+                    src={currentSong.cover_url}
+                    alt={currentSong.title}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    draggable={false}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+                    <NowPlayingBars isPlaying={isPlaying} />
+                  </div>
+                )}
+                {isPlaying && currentSong.cover_url && (
+                  <motion.div 
+                    className="absolute inset-0 bg-black/30 flex items-center justify-center"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    <NowPlayingBars isPlaying={isPlaying} />
+                  </motion.div>
+                )}
+              </motion.div>
             </div>
             
             {/* Song info */}

@@ -15,7 +15,6 @@ import LyricsDisplay from './LyricsDisplay';
 import SendDedicationModal from './SendDedicationModal';
 import { useAudioVisualizer } from '@/hooks/useAudioVisualizer';
 import AlbumArtAnimations from './player/AlbumArtAnimations';
-
 const formatTime = (seconds: number) => {
   if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
   const mins = Math.floor(seconds / 60);
@@ -28,32 +27,23 @@ const appleSpring = {
   type: "spring" as const,
   stiffness: 350,
   damping: 30,
-  mass: 1,
+  mass: 1
 };
 
 // Apple Music volume slider
-const AppleVolumeSlider = memo(function AppleVolumeSlider({ 
-  value, 
-  onChange 
-}: { 
-  value: number; 
+const AppleVolumeSlider = memo(function AppleVolumeSlider({
+  value,
+  onChange
+}: {
+  value: number;
   onChange: (value: number) => void;
 }) {
-  return (
-    <div className="flex items-center gap-3 w-full px-1">
+  return <div className="flex items-center gap-3 w-full px-1">
       <VolumeX className="w-4 h-4 text-white/40 flex-shrink-0" />
-      <Slider
-        value={[value * 100]}
-        max={100}
-        step={1}
-        onValueChange={([v]) => onChange(v / 100)}
-        className="flex-1 [&_[role=slider]]:w-[18px] [&_[role=slider]]:h-[18px] [&_[role=slider]]:bg-white [&_[role=slider]]:border-0 [&_[role=slider]]:shadow-md [&_[data-radix-slider-track]]:h-[4px] [&_[data-radix-slider-track]]:bg-white/20 [&_[data-radix-slider-range]]:bg-rose-500"
-      />
+      <Slider value={[value * 100]} max={100} step={1} onValueChange={([v]) => onChange(v / 100)} className="flex-1 [&_[role=slider]]:w-[18px] [&_[role=slider]]:h-[18px] [&_[role=slider]]:bg-white [&_[role=slider]]:border-0 [&_[role=slider]]:shadow-md [&_[data-radix-slider-track]]:h-[4px] [&_[data-radix-slider-track]]:bg-white/20 [&_[data-radix-slider-range]]:bg-rose-500" />
       <Volume2 className="w-4 h-4 text-white/40 flex-shrink-0" />
-    </div>
-  );
+    </div>;
 });
-
 const FullscreenPlayer = () => {
   const {
     currentSong,
@@ -72,9 +62,8 @@ const FullscreenPlayer = () => {
     setVolume,
     toggleShuffle,
     toggleRepeat,
-    setExpanded,
+    setExpanded
   } = usePlayer();
-
   const [showShareModal, setShowShareModal] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
@@ -83,47 +72,48 @@ const FullscreenPlayer = () => {
   const navigate = useNavigate();
 
   // Real audio frequency visualization
-  const { bassFrequency, midFrequency, highFrequency } = useAudioVisualizer(audioElement, isPlaying);
-
+  const {
+    bassFrequency,
+    midFrequency,
+    highFrequency
+  } = useAudioVisualizer(audioElement, isPlaying);
   const handleDragEnd = (_: any, info: PanInfo) => {
     if (info.offset.y > 100) {
       setExpanded(false);
     }
   };
-
   if (!currentSong || !isExpanded) return null;
 
   // Safe progress values
   const safeProgress = isFinite(progress) ? progress : 0;
   const safeDuration = isFinite(duration) && duration > 0 ? duration : 100;
   const timeRemaining = safeDuration - safeProgress;
-
-  return (
-    <>
+  return <>
       <AnimatePresence>
-        <motion.div
-          className="fixed inset-0 z-50 overflow-hidden bg-black"
-          initial={{ y: "100%" }}
-          animate={{ y: 0 }}
-          exit={{ y: "100%" }}
-          transition={appleSpring}
-          drag="y"
-          dragConstraints={{ top: 0, bottom: 0 }}
-          dragElastic={{ top: 0, bottom: 0.3 }}
-          onDragEnd={handleDragEnd}
-        >
+        <motion.div className="fixed inset-0 z-50 overflow-hidden bg-black" initial={{
+        y: "100%"
+      }} animate={{
+        y: 0
+      }} exit={{
+        y: "100%"
+      }} transition={appleSpring} drag="y" dragConstraints={{
+        top: 0,
+        bottom: 0
+      }} dragElastic={{
+        top: 0,
+        bottom: 0.3
+      }} onDragEnd={handleDragEnd}>
           {/* Apple Music blurred background */}
           <div className="absolute inset-0 overflow-hidden">
-            {currentSong.cover_url && (
-              <motion.img
-                src={currentSong.cover_url}
-                alt=""
-                className="absolute inset-0 w-full h-full object-cover"
-                initial={{ opacity: 0, scale: 1.2 }}
-                animate={{ opacity: 0.5, scale: 1.1 }}
-                style={{ filter: 'blur(80px) saturate(1.5)' }}
-              />
-            )}
+            {currentSong.cover_url && <motion.img src={currentSong.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" initial={{
+            opacity: 0,
+            scale: 1.2
+          }} animate={{
+            opacity: 0.5,
+            scale: 1.1
+          }} style={{
+            filter: 'blur(80px) saturate(1.5)'
+          }} />}
             {/* Dark overlay */}
             <div className="absolute inset-0 bg-black/60" />
           </div>
@@ -136,12 +126,9 @@ const FullscreenPlayer = () => {
 
             {/* Header */}
             <div className="flex items-center justify-between py-2">
-              <motion.button
-                className="p-2 -ml-2"
-                onClick={() => setExpanded(false)}
-                whileTap={{ scale: 0.9 }}
-                transition={iosBounce}
-              >
+              <motion.button className="p-2 -ml-2" onClick={() => setExpanded(false)} whileTap={{
+              scale: 0.9
+            }} transition={iosBounce}>
                 <ChevronDown className="w-7 h-7 text-white/80" />
               </motion.button>
               
@@ -154,59 +141,36 @@ const FullscreenPlayer = () => {
                 </p>
               </div>
               
-              <motion.button
-                className="p-2 -mr-2"
-                onClick={() => setShowPlaylistModal(true)}
-                whileTap={{ scale: 0.9 }}
-                transition={iosBounce}
-              >
+              <motion.button className="p-2 -mr-2" onClick={() => setShowPlaylistModal(true)} whileTap={{
+              scale: 0.9
+            }} transition={iosBounce}>
                 <Ellipsis className="w-6 h-6 text-white/80" />
               </motion.button>
             </div>
 
             {/* Album Art - with unique per-song animations */}
             <div className="flex-1 flex items-center justify-center py-6">
-              <motion.div
-                className="relative w-full max-w-[320px] aspect-square"
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ 
-                  scale: isPlaying ? 1 : 0.85, 
-                  opacity: 1,
-                }}
-                transition={appleSpring}
-              >
+              <motion.div className="relative w-full max-w-[320px] aspect-square" initial={{
+              scale: 0.8,
+              opacity: 0
+            }} animate={{
+              scale: isPlaying ? 1 : 0.85,
+              opacity: 1
+            }} transition={appleSpring}>
                 {/* Unique per-song animations based on song ID */}
-                <AlbumArtAnimations
-                  isPlaying={isPlaying}
-                  bassFrequency={bassFrequency}
-                  midFrequency={midFrequency}
-                  highFrequency={highFrequency}
-                  songId={currentSong.id}
-                />
+                <AlbumArtAnimations isPlaying={isPlaying} bassFrequency={bassFrequency} midFrequency={midFrequency} highFrequency={highFrequency} songId={currentSong.id} />
 
                 {/* Album artwork */}
-                <motion.div 
-                  className="relative w-full h-full rounded-xl overflow-hidden shadow-2xl z-10"
-                  animate={{
-                    boxShadow: isPlaying 
-                      ? `0 0 ${60 + bassFrequency * 40}px ${15 + bassFrequency * 15}px hsl(var(--primary) / ${0.25 + bassFrequency * 0.2}), 0 30px 60px -15px rgba(0, 0, 0, 0.8)`
-                      : '0 20px 40px -15px rgba(0, 0, 0, 0.6)',
-                    scale: isPlaying ? 1 + bassFrequency * 0.03 : 1,
-                  }}
-                  transition={{ duration: 0.05, ease: 'linear' }}
-                >
-                  {currentSong.cover_url ? (
-                    <img
-                      src={currentSong.cover_url}
-                      alt={currentSong.title}
-                      className="w-full h-full object-cover"
-                      draggable={false}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+                <motion.div className="relative w-full h-full rounded-xl overflow-hidden shadow-2xl z-10 opacity-100" animate={{
+                boxShadow: isPlaying ? `0 0 ${60 + bassFrequency * 40}px ${15 + bassFrequency * 15}px hsl(var(--primary) / ${0.25 + bassFrequency * 0.2}), 0 30px 60px -15px rgba(0, 0, 0, 0.8)` : '0 20px 40px -15px rgba(0, 0, 0, 0.6)',
+                scale: isPlaying ? 1 + bassFrequency * 0.03 : 1
+              }} transition={{
+                duration: 0.05,
+                ease: 'linear'
+              }}>
+                  {currentSong.cover_url ? <img src={currentSong.cover_url} alt={currentSong.title} className="w-full h-full object-cover" draggable={false} /> : <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
                       <div className="text-white/60 text-6xl">♪</div>
-                    </div>
-                  )}
+                    </div>}
                 </motion.div>
               </motion.div>
             </div>
@@ -216,23 +180,23 @@ const FullscreenPlayer = () => {
               {/* Title and Artist */}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <motion.h2
-                    className="text-[22px] font-bold text-white truncate"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
+                  <motion.h2 className="text-[22px] font-bold text-white truncate" initial={{
+                  opacity: 0,
+                  y: 10
+                }} animate={{
+                  opacity: 1,
+                  y: 0
+                }}>
                     {currentSong.title}
                   </motion.h2>
-                  <motion.button
-                    className="text-[18px] text-rose-400 font-medium truncate block"
-                    onClick={() => {
-                      if (currentSong.artist_id) {
-                        setExpanded(false);
-                        navigate(`/artist/${currentSong.artist_id}`);
-                      }
-                    }}
-                    whileTap={{ scale: 0.98 }}
-                  >
+                  <motion.button className="text-[18px] text-rose-400 font-medium truncate block" onClick={() => {
+                  if (currentSong.artist_id) {
+                    setExpanded(false);
+                    navigate(`/artist/${currentSong.artist_id}`);
+                  }
+                }} whileTap={{
+                  scale: 0.98
+                }}>
                     {currentSong.artist}
                   </motion.button>
                 </div>
@@ -244,13 +208,7 @@ const FullscreenPlayer = () => {
 
               {/* Progress bar - Apple Music style with fixed values */}
               <div>
-                <Slider
-                  value={[safeProgress]}
-                  max={safeDuration}
-                  step={0.1}
-                  onValueChange={([value]) => seek(value)}
-                  className="[&_[role=slider]]:w-4 [&_[role=slider]]:h-4 [&_[role=slider]]:bg-white [&_[role=slider]]:border-0 [&_[data-radix-slider-track]]:h-[4px] [&_[data-radix-slider-track]]:bg-white/20 [&_[data-radix-slider-range]]:bg-rose-500"
-                />
+                <Slider value={[safeProgress]} max={safeDuration} step={0.1} onValueChange={([value]) => seek(value)} className="[&_[role=slider]]:w-4 [&_[role=slider]]:h-4 [&_[role=slider]]:bg-white [&_[role=slider]]:border-0 [&_[data-radix-slider-track]]:h-[4px] [&_[data-radix-slider-track]]:bg-white/20 [&_[data-radix-slider-range]]:bg-rose-500" />
                 <div className="flex justify-between mt-2 text-[12px] font-medium text-white/50">
                   <span>{formatTime(safeProgress)}</span>
                   <span>-{formatTime(Math.max(0, timeRemaining))}</span>
@@ -260,61 +218,38 @@ const FullscreenPlayer = () => {
               {/* Main Controls - Apple Music layout */}
               <div className="flex items-center justify-between px-4">
                 {/* Shuffle */}
-                <motion.button
-                  className={`p-2 ${shuffle ? 'text-rose-400' : 'text-white/50'}`}
-                  onClick={toggleShuffle}
-                  whileTap={{ scale: 0.85 }}
-                  transition={iosBounce}
-                >
+                <motion.button className={`p-2 ${shuffle ? 'text-rose-400' : 'text-white/50'}`} onClick={toggleShuffle} whileTap={{
+                scale: 0.85
+              }} transition={iosBounce}>
                   <Shuffle className="w-5 h-5" />
                 </motion.button>
 
                 {/* Previous */}
-                <motion.button
-                  className="p-2"
-                  onClick={prevSong}
-                  whileTap={{ scale: 0.85 }}
-                  transition={iosBounce}
-                >
+                <motion.button className="p-2" onClick={prevSong} whileTap={{
+                scale: 0.85
+              }} transition={iosBounce}>
                   <SkipBack className="w-8 h-8 text-white" fill="white" />
                 </motion.button>
                 
                 {/* Play/Pause - Apple Music large circle with proper state */}
-                <motion.button
-                  className="w-[72px] h-[72px] rounded-full bg-white flex items-center justify-center"
-                  onClick={togglePlay}
-                  whileTap={{ scale: 0.9 }}
-                  transition={appleSpring}
-                >
-                  {isPlaying ? (
-                    <Pause className="w-8 h-8 text-black" fill="black" />
-                  ) : (
-                    <Play className="w-8 h-8 text-black ml-1" fill="black" />
-                  )}
+                <motion.button className="w-[72px] h-[72px] rounded-full bg-white flex items-center justify-center" onClick={togglePlay} whileTap={{
+                scale: 0.9
+              }} transition={appleSpring}>
+                  {isPlaying ? <Pause className="w-8 h-8 text-black" fill="black" /> : <Play className="w-8 h-8 text-black ml-1" fill="black" />}
                 </motion.button>
                 
                 {/* Next */}
-                <motion.button
-                  className="p-2"
-                  onClick={nextSong}
-                  whileTap={{ scale: 0.85 }}
-                  transition={iosBounce}
-                >
+                <motion.button className="p-2" onClick={nextSong} whileTap={{
+                scale: 0.85
+              }} transition={iosBounce}>
                   <SkipForward className="w-8 h-8 text-white" fill="white" />
                 </motion.button>
 
                 {/* Repeat */}
-                <motion.button
-                  className={`p-2 ${repeat !== 'off' ? 'text-rose-400' : 'text-white/50'}`}
-                  onClick={toggleRepeat}
-                  whileTap={{ scale: 0.85 }}
-                  transition={iosBounce}
-                >
-                  {repeat === 'one' ? (
-                    <Repeat1 className="w-5 h-5" />
-                  ) : (
-                    <Repeat className="w-5 h-5" />
-                  )}
+                <motion.button className={`p-2 ${repeat !== 'off' ? 'text-rose-400' : 'text-white/50'}`} onClick={toggleRepeat} whileTap={{
+                scale: 0.85
+              }} transition={iosBounce}>
+                  {repeat === 'one' ? <Repeat1 className="w-5 h-5" /> : <Repeat className="w-5 h-5" />}
                 </motion.button>
               </div>
 
@@ -325,35 +260,27 @@ const FullscreenPlayer = () => {
 
               {/* Bottom actions - Apple Music style */}
               <div className="flex items-center justify-between px-6 pt-2">
-                <motion.button
-                  className="p-2"
-                  onClick={() => setShowLyrics(true)}
-                  whileTap={{ scale: 0.85 }}
-                >
+                <motion.button className="p-2" onClick={() => setShowLyrics(true)} whileTap={{
+                scale: 0.85
+              }}>
                   <Mic2 className="w-5 h-5 text-white/50" />
                 </motion.button>
 
-                <motion.button
-                  className="p-2"
-                  onClick={() => setShowDedicationModal(true)}
-                  whileTap={{ scale: 0.85 }}
-                >
+                <motion.button className="p-2" onClick={() => setShowDedicationModal(true)} whileTap={{
+                scale: 0.85
+              }}>
                   <Heart className="w-5 h-5 text-white/50" />
                 </motion.button>
 
-                <motion.button
-                  className="p-2"
-                  onClick={() => setShowShareModal(true)}
-                  whileTap={{ scale: 0.85 }}
-                >
+                <motion.button className="p-2" onClick={() => setShowShareModal(true)} whileTap={{
+                scale: 0.85
+              }}>
                   <Share2 className="w-5 h-5 text-white/50" />
                 </motion.button>
                 
-                <motion.button
-                  className="p-2"
-                  onClick={() => setShowPlaylistModal(true)}
-                  whileTap={{ scale: 0.85 }}
-                >
+                <motion.button className="p-2" onClick={() => setShowPlaylistModal(true)} whileTap={{
+                scale: 0.85
+              }}>
                   <ListMusic className="w-5 h-5 text-white/50" />
                 </motion.button>
               </div>
@@ -368,33 +295,11 @@ const FullscreenPlayer = () => {
       </AnimatePresence>
 
       {/* Modals */}
-      <SocialShareModal 
-        isOpen={showShareModal} 
-        onClose={() => setShowShareModal(false)} 
-        song={currentSong} 
-      />
-      <AddToPlaylistModal
-        isOpen={showPlaylistModal}
-        onClose={() => setShowPlaylistModal(false)}
-        song={currentSong}
-        onCreateNew={() => setShowCreatePlaylist(true)}
-      />
-      <CreatePlaylistModal
-        isOpen={showCreatePlaylist}
-        onClose={() => setShowCreatePlaylist(false)}
-        onCreated={() => {}}
-      />
-      <LyricsDisplay
-        isOpen={showLyrics}
-        onClose={() => setShowLyrics(false)}
-      />
-      <SendDedicationModal
-        isOpen={showDedicationModal}
-        onClose={() => setShowDedicationModal(false)}
-        song={currentSong}
-      />
-    </>
-  );
+      <SocialShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} song={currentSong} />
+      <AddToPlaylistModal isOpen={showPlaylistModal} onClose={() => setShowPlaylistModal(false)} song={currentSong} onCreateNew={() => setShowCreatePlaylist(true)} />
+      <CreatePlaylistModal isOpen={showCreatePlaylist} onClose={() => setShowCreatePlaylist(false)} onCreated={() => {}} />
+      <LyricsDisplay isOpen={showLyrics} onClose={() => setShowLyrics(false)} />
+      <SendDedicationModal isOpen={showDedicationModal} onClose={() => setShowDedicationModal(false)} song={currentSong} />
+    </>;
 };
-
 export default FullscreenPlayer;

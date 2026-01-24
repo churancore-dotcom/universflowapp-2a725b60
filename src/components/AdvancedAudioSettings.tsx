@@ -5,6 +5,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { iosSpring, iosBounce } from '@/lib/animations';
+import { useAudioSettings } from '@/hooks/useAudioSettings';
 
 interface AdvancedAudioSettingsProps {
   isOpen: boolean;
@@ -31,15 +32,23 @@ const AdvancedAudioSettings = memo(function AdvancedAudioSettings({
   isOpen, 
   onClose 
 }: AdvancedAudioSettingsProps) {
-  const [selectedPreset, setSelectedPreset] = useState('flat');
-  const [selectedQuality, setSelectedQuality] = useState('320');
-  const [spatialAudio, setSpatialAudio] = useState(false);
-  const [dynamicNormalization, setDynamicNormalization] = useState(true);
-  const [customBands, setCustomBands] = useState([0, 0, 0, 0, 0]);
+  const { settings, updateSetting } = useAudioSettings();
+  
+  const selectedPreset = settings.selectedPreset;
+  const selectedQuality = settings.selectedQuality;
+  const spatialAudio = settings.spatialAudio;
+  const dynamicNormalization = settings.dynamicNormalization;
+  const customBands = settings.customBands;
+
+  const setSelectedPreset = (value: string) => updateSetting('selectedPreset', value);
+  const setSelectedQuality = (value: string) => updateSetting('selectedQuality', value);
+  const setSpatialAudio = (value: boolean) => updateSetting('spatialAudio', value);
+  const setDynamicNormalization = (value: boolean) => updateSetting('dynamicNormalization', value);
+  const setCustomBands = (value: number[]) => updateSetting('customBands', value);
 
   useEffect(() => {
     const preset = equalizerPresets.find(p => p.id === selectedPreset);
-    if (preset) {
+    if (preset && selectedPreset !== 'custom') {
       setCustomBands(preset.bands);
     }
   }, [selectedPreset]);

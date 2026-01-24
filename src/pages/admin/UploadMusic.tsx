@@ -73,6 +73,9 @@ const UploadMusic = () => {
     genre: '',
     mood: '',
     bpm: '',
+    showInNewReleases: true,
+    showInTrending: false,
+    isPremiumOnly: false,
   });
 
   const formatFileSize = (bytes: number) => {
@@ -544,6 +547,9 @@ const UploadMusic = () => {
         file_size: fileSize,
         duration: audioDuration,
         cover_size: coverSize,
+        show_in_new_releases: metadata.showInNewReleases,
+        show_in_trending: metadata.showInTrending,
+        is_premium_only: metadata.isPremiumOnly,
       });
 
       if (dbError) throw dbError;
@@ -562,7 +568,7 @@ const UploadMusic = () => {
         setExtractedUrl(null);
         setDetectedPlatform(null);
         setCompressionSaved(null);
-        setMetadata({ title: '', artist: '', album: '', genre: '', mood: '', bpm: '' });
+        setMetadata({ title: '', artist: '', album: '', genre: '', mood: '', bpm: '', showInNewReleases: true, showInTrending: false, isPremiumOnly: false });
         setUploadProgress(0);
         setIsUploading(false);
       }, 1000);
@@ -971,8 +977,8 @@ const UploadMusic = () => {
 
 // iOS 18 Style Metadata Card
 const MetadataCard = ({ metadata, setMetadata, genres, moods, isUploading, uploadProgress, canSubmit, onSubmit, isUrlMode }: {
-  metadata: { title: string; artist: string; album: string; genre: string; mood: string; bpm: string };
-  setMetadata: React.Dispatch<React.SetStateAction<{ title: string; artist: string; album: string; genre: string; mood: string; bpm: string }>>;
+  metadata: { title: string; artist: string; album: string; genre: string; mood: string; bpm: string; showInNewReleases: boolean; showInTrending: boolean; isPremiumOnly: boolean };
+  setMetadata: React.Dispatch<React.SetStateAction<{ title: string; artist: string; album: string; genre: string; mood: string; bpm: string; showInNewReleases: boolean; showInTrending: boolean; isPremiumOnly: boolean }>>;
   genres: string[];
   moods: string[];
   isUploading: boolean;
@@ -1048,6 +1054,56 @@ const MetadataCard = ({ metadata, setMetadata, genres, moods, isUploading, uploa
         className="mt-1.5 h-11 rounded-xl bg-muted/30 border-0"
         placeholder="120"
       />
+    </div>
+
+    {/* Section Placement */}
+    <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 space-y-3">
+      <Label className="text-sm font-semibold flex items-center gap-2">
+        <Sparkles className="w-4 h-4 text-primary" />
+        Display Sections
+      </Label>
+      <p className="text-xs text-muted-foreground">Choose where this song should appear</p>
+      
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center gap-3 p-3 rounded-lg bg-background/50 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={metadata.showInNewReleases}
+            onChange={(e) => setMetadata(prev => ({ ...prev, showInNewReleases: e.target.checked }))}
+            className="w-5 h-5 rounded accent-primary"
+          />
+          <div>
+            <span className="font-medium text-sm">New Releases</span>
+            <p className="text-xs text-muted-foreground">Show in New Releases section</p>
+          </div>
+        </label>
+        
+        <label className="flex items-center gap-3 p-3 rounded-lg bg-background/50 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={metadata.showInTrending}
+            onChange={(e) => setMetadata(prev => ({ ...prev, showInTrending: e.target.checked }))}
+            className="w-5 h-5 rounded accent-primary"
+          />
+          <div>
+            <span className="font-medium text-sm">Trending Now</span>
+            <p className="text-xs text-muted-foreground">Show in Trending Now section</p>
+          </div>
+        </label>
+        
+        <label className="flex items-center gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={metadata.isPremiumOnly}
+            onChange={(e) => setMetadata(prev => ({ ...prev, isPremiumOnly: e.target.checked }))}
+            className="w-5 h-5 rounded accent-amber-500"
+          />
+          <div>
+            <span className="font-medium text-sm text-amber-400">Premium Only</span>
+            <p className="text-xs text-muted-foreground">Only premium users can play this</p>
+          </div>
+        </label>
+      </div>
     </div>
 
     {/* Progress */}

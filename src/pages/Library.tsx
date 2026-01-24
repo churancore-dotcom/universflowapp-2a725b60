@@ -32,7 +32,7 @@ const Library = () => {
   const [likedSongs, setLikedSongs] = useState<Song[]>([]);
   const [recentlyPlayed, setRecentlyPlayed] = useState<Song[]>([]);
   const [playlists, setPlaylists] = useState<any[]>([]);
-  const [artists, setArtists] = useState<{ name: string; songCount: number; coverUrl: string | null }[]>([]);
+  const [artists, setArtists] = useState<{ id?: string; name: string; songCount: number; coverUrl: string | null; photoUrl: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('liked');
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
@@ -46,7 +46,7 @@ const Library = () => {
   const fetchLibrary = async () => {
     if (!user) return;
 
-    const [liked, recent, userPlaylists, allSongs] = await Promise.all([
+    const [liked, recent, userPlaylists, artistsData] = await Promise.all([
       supabase
         .from('user_library')
         .select('*, songs(*, artists(id, name, photo_url))')
@@ -63,10 +63,11 @@ const Library = () => {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false }),
+      // Fetch artists from the artists table
       supabase
-        .from('songs')
-        .select('artist, cover_url')
-        .eq('is_visible', true),
+        .from('artists')
+        .select('id, name, photo_url, genre')
+        .order('name'),
     ]);
 
     if (liked.data) {
@@ -109,35 +110,28 @@ const Library = () => {
       setPlaylists(userPlaylists.data);
     }
 
-    // Build artists list from all songs - normalize names for intelligent grouping
-    if (allSongs.data) {
-      const artistMap = new Map<string, { displayName: string; count: number; coverUrl: string | null }>();
+    // Use artists from the artists table
+    if (artistsData.data) {
+      // Also get song counts for each artist
+      const { data: songsData } = await supabase
+        .from('songs')
+        .select('artist_id')
+        .eq('is_visible', true);
       
-      allSongs.data.forEach(song => {
-        // Normalize: trim, collapse multiple spaces, lowercase for matching
-        const normalizedKey = song.artist.trim().replace(/\s+/g, ' ').toLowerCase();
-        const displayName = song.artist.trim().replace(/\s+/g, ' ');
-        
-        const existing = artistMap.get(normalizedKey);
-        if (existing) {
-          existing.count++;
-          // Keep the first (or most common) capitalization and first cover found
-        } else {
-          artistMap.set(normalizedKey, { 
-            displayName, 
-            count: 1, 
-            coverUrl: song.cover_url 
-          });
+      const songCounts = new Map<string, number>();
+      songsData?.forEach(song => {
+        if (song.artist_id) {
+          songCounts.set(song.artist_id, (songCounts.get(song.artist_id) || 0) + 1);
         }
       });
-      
-      const artistList = Array.from(artistMap.values())
-        .map(data => ({
-          name: data.displayName,
-          songCount: data.count,
-          coverUrl: data.coverUrl,
-        }))
-        .sort((a, b) => b.songCount - a.songCount); // Sort by song count
+
+      const artistList = artistsData.data.map(artist => ({
+        id: artist.id,
+        name: artist.name,
+        songCount: songCounts.get(artist.id) || 0,
+        coverUrl: null,
+        photoUrl: artist.photo_url,
+      })).sort((a, b) => b.songCount - a.songCount);
       
       setArtists(artistList);
     }
@@ -455,7 +449,7 @@ const Library = () => {
                 <div className="grid grid-cols-2 gap-4">
                   {artists.map((artist, index) => (
                     <motion.div
-                      key={artist.name}
+                      key={artist.id || artist.name}
                       className="rounded-2xl overflow-hidden cursor-pointer"
                       style={{
                         background: 'rgba(28, 28, 30, 0.8)',
@@ -466,10 +460,12 @@ const Library = () => {
                       transition={{ ...iosSpring, delay: index * 0.03 }}
                       whileHover={{ scale: 1.03, y: -4 }}
                       whileTap={{ scale: 0.97 }}
-                      onClick={() => navigate(`/artist/${encodeURIComponent(artist.name)}`)}
+                      onClick={() => navigate(`/artist/${artist.id || encodeURIComponent(artist.name)}`)}
                     >
                       <div className="aspect-square bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center relative overflow-hidden">
-                        {artist.coverUrl ? (
+                        {artist.photoUrl ? (
+                          <img src={artist.photoUrl} alt={artist.name} className="w-full h-full object-cover" />
+                        ) : artist.coverUrl ? (
                           <img src={artist.coverUrl} alt={artist.name} className="w-full h-full object-cover" />
                         ) : (
                           <User className="w-12 h-12 text-muted-foreground" />

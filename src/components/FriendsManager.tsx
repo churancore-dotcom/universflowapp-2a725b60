@@ -470,17 +470,29 @@ const FriendsManager = ({ isOpen, onClose }: FriendsManagerProps) => {
                         Share this link so friends can add you
                       </p>
                       
-                      <div className="flex gap-2 mb-4">
-                        <div className="flex-1 p-3 rounded-xl bg-black/30 font-mono text-sm truncate">
-                          {shareCode || '...'}
+                      {/* Display full share link */}
+                      <div className="mb-4">
+                        <label className="text-xs text-muted-foreground mb-1 block">Your Share Code:</label>
+                        <div className="flex gap-2">
+                          <div className="flex-1 p-3 rounded-xl bg-black/30 font-mono text-sm text-primary font-bold">
+                            {shareCode || 'Loading...'}
+                          </div>
+                          <motion.button
+                            onClick={copyShareLink}
+                            className="p-3 rounded-xl bg-white/10 hover:bg-white/20"
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            {copied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5" />}
+                          </motion.button>
                         </div>
-                        <motion.button
-                          onClick={copyShareLink}
-                          className="p-3 rounded-xl bg-white/10 hover:bg-white/20"
-                          whileTap={{ scale: 0.9 }}
-                        >
-                          {copied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5" />}
-                        </motion.button>
+                      </div>
+
+                      {/* Full link display */}
+                      <div className="mb-4">
+                        <label className="text-xs text-muted-foreground mb-1 block">Full Link:</label>
+                        <div className="p-3 rounded-xl bg-black/30 text-xs text-muted-foreground break-all">
+                          {shareCode ? `${appUrl}/add-friend/${shareCode}` : 'Generating...'}
+                        </div>
                       </div>
 
                       <motion.button

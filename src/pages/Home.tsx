@@ -24,6 +24,7 @@ import EqualizerModal from '@/components/EqualizerModal';
 import AudioVisualizer from '@/components/AudioVisualizer';
 import AIPlaylistGenerator from '@/components/AIPlaylistGenerator';
 import OfflineIndicator from '@/components/OfflineIndicator';
+import OfflineSection from '@/components/OfflineSection';
 import { TabTransition } from '@/components/PageTransition';
 import { Sparkles, Music, Lock, Bell, Moon, ListMusic, Sliders, Waves, Wand2 } from 'lucide-react';
 import { iosSpring, staggerContainer } from '@/lib/animations';
@@ -42,6 +43,20 @@ const Home = () => {
   const [showVisualizer, setShowVisualizer] = useState(false);
   const [showAIPlaylist, setShowAIPlaylist] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     fetchSongs();
@@ -91,6 +106,9 @@ const Home = () => {
           duration: s.duration || undefined,
           artist_id: artistData?.id || s.artist_id || undefined,
           artist_photo_url: artistData?.photo_url || undefined,
+          show_in_new_releases: (s as any).show_in_new_releases,
+          show_in_trending: (s as any).show_in_trending,
+          is_premium_only: (s as any).is_premium_only,
         };
       }));
     }
@@ -344,6 +362,9 @@ const Home = () => {
               initial="initial"
               animate="animate"
             >
+              {/* Offline Section - Shows when offline or has downloads */}
+              <OfflineSection isOffline={isOffline} />
+
               {/* Favorites Widget */}
               <FavoritesWidget />
 
@@ -362,15 +383,19 @@ const Home = () => {
               {/* Genre browsing */}
               <GenreSection />
 
-              <HorizontalSection title="New Releases" subtitle="Fresh tracks just added" songs={songs.slice(0, 10)}>
-                {songs.slice(0, 10).map((song, i) => (
-                  <SongCard key={song.id} song={song} index={i} />
-                ))}
-              </HorizontalSection>
+              {/* New Releases - show only songs marked for new releases */}
+              {songs.filter(s => (s as any).show_in_new_releases).length > 0 && (
+                <HorizontalSection title="New Releases" subtitle="Fresh tracks just added" songs={songs.filter(s => (s as any).show_in_new_releases).slice(0, 10)}>
+                  {songs.filter(s => (s as any).show_in_new_releases).slice(0, 10).map((song, i) => (
+                    <SongCard key={song.id} song={song} index={i} />
+                  ))}
+                </HorizontalSection>
+              )}
 
-              {songs.length > 5 && (
-                <HorizontalSection title="Trending Now" subtitle="What's hot right now" songs={songs.slice(0, 8)}>
-                  {songs.slice(0, 8).map((song, i) => (
+              {/* Trending Now - show only songs marked for trending */}
+              {songs.filter(s => (s as any).show_in_trending).length > 0 && (
+                <HorizontalSection title="Trending Now" subtitle="What's hot right now" songs={songs.filter(s => (s as any).show_in_trending).slice(0, 8)}>
+                  {songs.filter(s => (s as any).show_in_trending).slice(0, 8).map((song, i) => (
                     <SongCard key={song.id} song={song} index={i} />
                   ))}
                 </HorizontalSection>

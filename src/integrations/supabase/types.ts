@@ -113,6 +113,7 @@ export type Database = {
           created_at: string
           genre: string | null
           id: string
+          is_premium_only: boolean
           name: string
           photo_url: string | null
           updated_at: string
@@ -122,6 +123,7 @@ export type Database = {
           created_at?: string
           genre?: string | null
           id?: string
+          is_premium_only?: boolean
           name: string
           photo_url?: string | null
           updated_at?: string
@@ -131,6 +133,7 @@ export type Database = {
           created_at?: string
           genre?: string | null
           id?: string
+          is_premium_only?: boolean
           name?: string
           photo_url?: string | null
           updated_at?: string
@@ -564,6 +567,8 @@ export type Database = {
           is_visible: boolean
           mood: string | null
           play_count: number
+          show_in_new_releases: boolean
+          show_in_trending: boolean
           title: string
           updated_at: string
         }
@@ -586,6 +591,8 @@ export type Database = {
           is_visible?: boolean
           mood?: string | null
           play_count?: number
+          show_in_new_releases?: boolean
+          show_in_trending?: boolean
           title: string
           updated_at?: string
         }
@@ -608,6 +615,8 @@ export type Database = {
           is_visible?: boolean
           mood?: string | null
           play_count?: number
+          show_in_new_releases?: boolean
+          show_in_trending?: boolean
           title?: string
           updated_at?: string
         }

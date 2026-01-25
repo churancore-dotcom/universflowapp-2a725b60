@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { useNewSongNotification } from '@/hooks/useNewSongNotification';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { useSongCache } from '@/hooks/useSongCache';
 import SongCard from '@/components/SongCard';
 import HorizontalSection from '@/components/HorizontalSection';
 import FavoritesWidget from '@/components/FavoritesWidget';
@@ -30,12 +31,70 @@ import { Sparkles, Music, Lock, Bell, Moon, ListMusic, Sliders, Waves, Wand2 } f
 import { iosSpring, staggerContainer } from '@/lib/animations';
 import { toast } from 'sonner';
 
+// Memoized empty state component
+const EmptyState = memo(() => (
+  <motion.div
+    className="text-center py-16 sm:py-20"
+    initial={{ opacity: 0, scale: 0.95 }}
+    animate={{ opacity: 1, scale: 1 }}
+    transition={iosSpring}
+  >
+    <motion.div 
+      className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6"
+      style={{
+        background: 'linear-gradient(135deg, hsl(211 100% 50% / 0.2), hsl(328 100% 54% / 0.2))',
+      }}
+      initial={{ scale: 0, rotate: -20 }}
+      animate={{ scale: 1, rotate: 0 }}
+      transition={{ ...iosSpring, delay: 0.1 }}
+    >
+      <Music className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground" />
+    </motion.div>
+    <motion.h2 
+      className="text-lg sm:text-xl font-semibold mb-2"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+    >
+      No music yet
+    </motion.h2>
+    <motion.p 
+      className="text-muted-foreground max-w-xs mx-auto text-sm sm:text-[15px] px-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.3 }}
+    >
+      Music will appear here once an admin uploads songs to the platform.
+    </motion.p>
+  </motion.div>
+));
+
+EmptyState.displayName = 'EmptyState';
+
+// Loading skeleton
+const LoadingSkeleton = memo(() => (
+  <motion.div 
+    className="flex justify-center py-16 sm:py-20"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+  >
+    <motion.div 
+      className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-primary border-t-transparent"
+      animate={{ rotate: 360 }}
+      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+    />
+  </motion.div>
+));
+
+LoadingSkeleton.displayName = 'LoadingSkeleton';
+
 const Home = () => {
   const { user } = useAuth();
   const { currentSong } = usePlayer();
   const { requestPermission } = useNewSongNotification();
-  const [songs, setSongs] = useState<Song[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { cachedSongs, updateCache } = useSongCache();
+  const [songs, setSongs] = useState<Song[]>(cachedSongs || []);
+  const [loading, setLoading] = useState(!cachedSongs);
   const [showLockScreen, setShowLockScreen] = useState(false);
   const [showSleepTimer, setShowSleepTimer] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
@@ -45,18 +104,21 @@ const Home = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
-  useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
+  // Memoized filtered songs
+  const newReleases = useMemo(() => 
+    songs.filter(s => (s as any).show_in_new_releases).slice(0, 10),
+    [songs]
+  );
+  
+  const trendingSongs = useMemo(() => 
+    songs.filter(s => (s as any).show_in_trending).slice(0, 8),
+    [songs]
+  );
+  
+  const recommendedSongs = useMemo(() => 
+    songs.slice().reverse().slice(0, 8),
+    [songs]
+  );
 
   useEffect(() => {
     fetchSongs();
@@ -94,7 +156,7 @@ const Home = () => {
       .order('created_at', { ascending: false });
 
     if (data) {
-      setSongs(data.map(s => {
+      const mappedSongs = data.map(s => {
         const artistData = s.artists as { id: string; name: string; photo_url: string | null } | null;
         return {
           id: s.id,
@@ -110,10 +172,12 @@ const Home = () => {
           show_in_trending: (s as any).show_in_trending,
           is_premium_only: (s as any).is_premium_only,
         };
-      }));
+      });
+      setSongs(mappedSongs);
+      updateCache(mappedSongs);
     }
     setLoading(false);
-  }, []);
+  }, [updateCache]);
 
   const handleRefresh = useCallback(async () => {
     await fetchSongs();
@@ -124,49 +188,12 @@ const Home = () => {
     onRefresh: handleRefresh,
   });
 
-  const greeting = () => {
+  const greeting = useCallback(() => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
-  };
-
-  const EmptyState = () => (
-    <motion.div
-      className="text-center py-20"
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={iosSpring}
-    >
-      <motion.div 
-        className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6"
-        style={{
-          background: 'linear-gradient(135deg, hsl(211 100% 50% / 0.2), hsl(328 100% 54% / 0.2))',
-        }}
-        initial={{ scale: 0, rotate: -20 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ ...iosSpring, delay: 0.1 }}
-      >
-        <Music className="w-12 h-12 text-muted-foreground" />
-      </motion.div>
-      <motion.h2 
-        className="text-xl font-semibold mb-2"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        No music yet
-      </motion.h2>
-      <motion.p 
-        className="text-muted-foreground max-w-xs mx-auto text-[15px]"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
-        Music will appear here once an admin uploads songs to the platform.
-      </motion.p>
-    </motion.div>
-  );
+  }, []);
 
   return (
     <TabTransition>
@@ -341,19 +368,9 @@ const Home = () => {
           </div>
         </motion.header>
 
-        <main className="px-6 pt-8 relative z-10">
+        <main className="px-4 sm:px-6 pt-6 sm:pt-8 relative z-10 overflow-x-hidden">
           {loading ? (
-            <motion.div 
-              className="flex justify-center py-20"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              <motion.div 
-                className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              />
-            </motion.div>
+            <LoadingSkeleton />
           ) : songs.length === 0 ? (
             <EmptyState />
           ) : (
@@ -361,6 +378,7 @@ const Home = () => {
               variants={staggerContainer}
               initial="initial"
               animate="animate"
+              className="space-y-6 sm:space-y-8"
             >
               {/* Offline Section - Shows when offline or has downloads */}
               <OfflineSection isOffline={isOffline} />
@@ -383,27 +401,27 @@ const Home = () => {
               {/* Genre browsing */}
               <GenreSection />
 
-              {/* New Releases - show only songs marked for new releases */}
-              {songs.filter(s => (s as any).show_in_new_releases).length > 0 && (
-                <HorizontalSection title="New Releases" subtitle="Fresh tracks just added" songs={songs.filter(s => (s as any).show_in_new_releases).slice(0, 10)}>
-                  {songs.filter(s => (s as any).show_in_new_releases).slice(0, 10).map((song, i) => (
+              {/* New Releases - use memoized values */}
+              {newReleases.length > 0 && (
+                <HorizontalSection title="New Releases" subtitle="Fresh tracks just added" songs={newReleases}>
+                  {newReleases.map((song, i) => (
                     <SongCard key={song.id} song={song} index={i} />
                   ))}
                 </HorizontalSection>
               )}
 
-              {/* Trending Now - show only songs marked for trending */}
-              {songs.filter(s => (s as any).show_in_trending).length > 0 && (
-                <HorizontalSection title="Trending Now" subtitle="What's hot right now" songs={songs.filter(s => (s as any).show_in_trending).slice(0, 8)}>
-                  {songs.filter(s => (s as any).show_in_trending).slice(0, 8).map((song, i) => (
+              {/* Trending Now - use memoized values */}
+              {trendingSongs.length > 0 && (
+                <HorizontalSection title="Trending Now" subtitle="What's hot right now" songs={trendingSongs}>
+                  {trendingSongs.map((song, i) => (
                     <SongCard key={song.id} song={song} index={i} />
                   ))}
                 </HorizontalSection>
               )}
 
               {songs.length > 3 && (
-                <HorizontalSection title="Recommended for You" subtitle="Based on your taste" songs={songs.slice().reverse().slice(0, 8)}>
-                  {songs.slice().reverse().slice(0, 8).map((song, i) => (
+                <HorizontalSection title="Recommended for You" subtitle="Based on your taste" songs={recommendedSongs}>
+                  {recommendedSongs.map((song, i) => (
                     <SongCard key={song.id} song={song} index={i} />
                   ))}
                 </HorizontalSection>
@@ -415,12 +433,12 @@ const Home = () => {
         <BottomNav />
         <MiniPlayer />
         <FullscreenPlayer />
-        <LockScreenPlayer isOpen={showLockScreen} onClose={() => setShowLockScreen(false)} />
-        <SleepTimerModal isOpen={showSleepTimer} onClose={() => setShowSleepTimer(false)} />
-        <QueueDrawer isOpen={showQueue} onClose={() => setShowQueue(false)} />
-        <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} audioContext={null} sourceNode={null} />
-        <AudioVisualizer isOpen={showVisualizer} onClose={() => setShowVisualizer(false)} />
-        <AIPlaylistGenerator isOpen={showAIPlaylist} onClose={() => setShowAIPlaylist(false)} onPlaylistCreated={fetchSongs} />
+        {showLockScreen && <LockScreenPlayer isOpen={showLockScreen} onClose={() => setShowLockScreen(false)} />}
+        {showSleepTimer && <SleepTimerModal isOpen={showSleepTimer} onClose={() => setShowSleepTimer(false)} />}
+        {showQueue && <QueueDrawer isOpen={showQueue} onClose={() => setShowQueue(false)} />}
+        {showEqualizer && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} audioContext={null} sourceNode={null} />}
+        {showVisualizer && <AudioVisualizer isOpen={showVisualizer} onClose={() => setShowVisualizer(false)} />}
+        {showAIPlaylist && <AIPlaylistGenerator isOpen={showAIPlaylist} onClose={() => setShowAIPlaylist(false)} onPlaylistCreated={fetchSongs} />}
         <OfflineIndicator />
       </motion.div>
     </TabTransition>

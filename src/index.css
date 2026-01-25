@@ -87,6 +87,16 @@
   * {
     @apply border-border;
     -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+  }
+  
+  /* MOBILE-ONLY APP: Lock to phone dimensions */
+  html, body, #root {
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
   }
   
   body {
@@ -95,17 +105,7 @@
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-  
-  html {
-    scroll-behavior: smooth;
-    -webkit-text-size-adjust: 100%;
-    touch-action: pan-x pan-y;
-    -webkit-touch-callout: none;
-  }
-
-  /* Disable text selection and zooming for native app feel */
-  body {
+    /* Disable text selection and zooming for native app feel */
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
@@ -114,6 +114,17 @@
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     overscroll-behavior: none;
+    /* Prevent zoom on double tap */
+    touch-action: pan-x pan-y;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    touch-action: pan-x pan-y;
+    -webkit-touch-callout: none;
+    /* Prevent pinch zoom */
+    touch-action: manipulation;
   }
 
   /* Allow text selection only in specific elements */
@@ -137,6 +148,16 @@
   /* Re-enable pointer events on interactive images */
   button img, a img, .interactive-image {
     pointer-events: auto;
+  }
+  
+  /* Disable hover effects on mobile */
+  @media (hover: none) {
+    .card-hover:hover,
+    .ios-card:hover,
+    .btn-premium:hover,
+    .btn-glow:hover {
+      transform: none !important;
+    }
   }
 }
 

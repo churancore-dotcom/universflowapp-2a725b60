@@ -143,30 +143,30 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
             <div className="absolute inset-0 bg-black/60" />
           </div>
 
-          {/* Main content - ultra compact, no wasted space */}
-          <div className="relative flex flex-col h-full px-5 pt-3 pb-3">
-            {/* Drag indicator - minimal */}
-            <div className="flex justify-center mb-2">
+          {/* Main content - compact mobile layout */}
+          <div className="relative flex flex-col h-full px-4 pt-2 pb-2 overflow-hidden">
+            {/* Drag indicator */}
+            <div className="flex justify-center mb-1.5">
               <motion.div 
-                className="w-10 h-1 rounded-full bg-white/40"
+                className="w-9 h-1 rounded-full bg-white/40"
                 whileHover={{ scaleX: 1.2 }}
                 transition={tapSpring}
               />
             </div>
 
-            {/* Header - ultra compact */}
-            <div className="flex items-center justify-between mb-3">
+            {/* Header - minimal */}
+            <div className="flex items-center justify-between mb-2">
               <motion.button 
-                className="w-11 h-11 flex items-center justify-center -ml-2 touch-manipulation" 
+                className="w-10 h-10 flex items-center justify-center -ml-1 touch-manipulation" 
                 onClick={() => { triggerHaptic('impactLight'); setExpanded(false); }} 
                 whileTap={{ scale: 0.85 }} 
                 transition={tapSpring}
               >
-                <ChevronDown className="w-7 h-7 text-white/80" />
+                <ChevronDown className="w-6 h-6 text-white/80" />
               </motion.button>
               
               <motion.div 
-                className="text-center flex-1 px-3 min-w-0"
+                className="text-center flex-1 px-2 min-w-0"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={originBounce}
@@ -180,24 +180,23 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
               </motion.div>
               
               <motion.button 
-                className="w-11 h-11 flex items-center justify-center -mr-2 touch-manipulation" 
+                className="w-10 h-10 flex items-center justify-center -mr-1 touch-manipulation" 
                 onClick={() => { triggerHaptic('impactLight'); setShowPlaylistModal(true); }} 
                 whileTap={{ scale: 0.85 }} 
                 transition={tapSpring}
               >
-                <Ellipsis className="w-6 h-6 text-white/80" />
+                <Ellipsis className="w-5 h-5 text-white/80" />
               </motion.button>
             </div>
 
-            {/* Album Art - maximized, fills available space */}
-            <div className="flex-1 flex items-center justify-center min-h-0">
+            {/* Album Art - compact, fixed size for mobile */}
+            <div className="flex items-center justify-center py-2">
               <motion.div 
-                className="relative w-[85vw] max-w-[340px] aspect-square" 
-                initial={{ scale: 0.85, opacity: 0, y: 20 }} 
+                className="relative w-[72vw] max-w-[280px] aspect-square" 
+                initial={{ scale: 0.85, opacity: 0 }} 
                 animate={{ 
                   scale: isPlaying ? 1 : 0.96, 
-                  opacity: 1,
-                  y: 0 
+                  opacity: 1 
                 }} 
                 transition={originBounce}
               >
@@ -210,30 +209,26 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 />
 
                 <motion.div 
-                  className="relative w-full h-full rounded-3xl overflow-hidden shadow-2xl z-10 bg-muted" 
+                  className="relative w-full h-full rounded-2xl overflow-hidden shadow-2xl z-10 bg-muted" 
                   animate={{
                     boxShadow: isPlaying 
-                      ? `0 0 ${50 + bassFrequency * 40}px ${12 + bassFrequency * 15}px hsl(var(--primary) / ${0.25 + bassFrequency * 0.2}), 0 25px 50px -12px rgba(0, 0, 0, 0.8)` 
-                      : '0 20px 40px -15px rgba(0, 0, 0, 0.6)',
-                    scale: isPlaying ? 1 + bassFrequency * 0.015 : 1,
-                    rotate: isPlaying ? bassFrequency * 0.3 : 0
+                      ? `0 0 ${30 + bassFrequency * 25}px ${8 + bassFrequency * 10}px hsl(var(--primary) / ${0.2 + bassFrequency * 0.15})` 
+                      : '0 15px 30px -10px rgba(0, 0, 0, 0.5)',
+                    scale: isPlaying ? 1 + bassFrequency * 0.01 : 1,
                   }} 
                   transition={{ duration: 0.04, ease: 'linear' }}
                 >
                   {currentSong.cover_url ? (
-                    <motion.img 
+                    <img 
                       src={currentSong.cover_url} 
                       alt={currentSong.title} 
                       className="w-full h-full object-cover" 
                       draggable={false}
                       loading="eager"
-                      initial={{ scale: 1.1 }}
-                      animate={{ scale: 1 }}
-                      transition={originBounce}
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-                      <div className="text-white/60 text-7xl">♪</div>
+                      <div className="text-white/60 text-5xl">♪</div>
                     </div>
                   )}
                 </motion.div>

@@ -42,6 +42,7 @@ import ContentScheduler from "./pages/admin/ContentScheduler";
 import BackupExport from "./pages/admin/BackupExport";
 import PromoCodes from "./pages/admin/PromoCodes";
 import AddFriend from "./pages/AddFriend";
+import Offline from "./pages/Offline";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -78,6 +79,7 @@ const AnimatedRoutes = () => {
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
+        <Route path="/offline" element={<ProtectedRoute><Offline /></ProtectedRoute>} />
         <Route path="/add-friend/:shareCode" element={<AddFriend />} />
         <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
           <Route index element={<AdminDashboard />} />

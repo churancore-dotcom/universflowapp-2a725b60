@@ -11,6 +11,7 @@ import FullscreenPlayer from '@/components/FullscreenPlayer';
 import LikeButton from '@/components/LikeButton';
 import DownloadButton from '@/components/DownloadButton';
 import { TabTransition } from '@/components/PageTransition';
+import Footer from '@/components/Footer';
 import { Input } from '@/components/ui/input';
 import { iosSpring, iosBounce } from '@/lib/animations';
 
@@ -441,6 +442,8 @@ const Search = () => {
               </motion.div>
             ) : null}
           </AnimatePresence>
+          
+          <Footer />
         </main>
 
         <BottomNav />

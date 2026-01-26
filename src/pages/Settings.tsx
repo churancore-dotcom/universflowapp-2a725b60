@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { iosSpring, iosBounce } from '@/lib/animations';
 import { usePremium } from '@/hooks/usePremium';
+import Footer from '@/components/Footer';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -260,17 +261,8 @@ const Settings = () => {
           </motion.button>
         </SettingSection>
 
-        {/* App Info */}
-        <motion.div 
-          className="text-center py-8"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-        >
-          <p className="text-muted-foreground/50 text-sm">
-            Made with ❤️ by Sonique
-          </p>
-        </motion.div>
+        {/* Footer */}
+        <Footer />
       </main>
 
       <BottomNav />

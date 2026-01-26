@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { FadeTransition } from '@/components/PageTransition';
 import { getAuthError } from '@/lib/errorMessages';
+import Footer from '@/components/Footer';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -244,6 +245,8 @@ const Auth = () => {
             </p>
           </form>
         </motion.div>
+        
+        <Footer />
       </div>
     </FadeTransition>
   );

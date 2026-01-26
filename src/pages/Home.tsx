@@ -22,6 +22,7 @@ import AIPlaylistGenerator from '@/components/AIPlaylistGenerator';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import OfflineSection from '@/components/OfflineSection';
 import { TabTransition } from '@/components/PageTransition';
+import Footer from '@/components/Footer';
 import { Music, Lock, ListMusic, Sliders } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -275,6 +276,8 @@ const Home = () => {
               )}
             </div>
           )}
+          
+          <Footer />
         </main>
 
         <BottomNav />

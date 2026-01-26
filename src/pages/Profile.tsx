@@ -16,6 +16,7 @@ import Crossfade from '@/components/Crossfade';
 import AdvancedAudioSettings from '@/components/AdvancedAudioSettings';
 import RedeemCodeModal from '@/components/RedeemCodeModal';
 import { SheetTransition } from '@/components/PageTransition';
+import Footer from '@/components/Footer';
 import { iosSpring, iosBounce } from '@/lib/animations';
 
 const Profile = () => {
@@ -483,6 +484,8 @@ const Profile = () => {
             );
           })}
         </motion.div>
+        
+        <Footer />
       </main>
 
       <BottomNav />

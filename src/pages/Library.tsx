@@ -14,6 +14,7 @@ import LikeButton from '@/components/LikeButton';
 import DownloadButton from '@/components/DownloadButton';
 import { TabTransition } from '@/components/PageTransition';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Footer from '@/components/Footer';
 import { iosSpring, iosBounce } from '@/lib/animations';
 
 const formatBytes = (bytes: number) => {
@@ -575,6 +576,8 @@ const Library = () => {
             </TabsContent>
           </AnimatePresence>
         </Tabs>
+        
+        <Footer />
       </main>
 
       <BottomNav />

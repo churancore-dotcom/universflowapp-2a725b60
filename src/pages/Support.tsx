@@ -9,6 +9,7 @@ import PageTransition from '@/components/PageTransition';
 import { iosSpring, iosBounce } from '@/lib/animations';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
+import Footer from '@/components/Footer';
 
 const Support = () => {
   const navigate = useNavigate();
@@ -256,17 +257,8 @@ const Support = () => {
             </div>
           </motion.section>
 
-          {/* Thank you message */}
-          <motion.div 
-            className="text-center py-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-          >
-            <p className="text-muted-foreground/50 text-sm">
-              Every bit of support means the world to us ❤️
-            </p>
-          </motion.div>
+          {/* Footer */}
+          <Footer />
         </main>
 
         <BottomNav />

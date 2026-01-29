@@ -1,149 +1,164 @@
 
-# Fix All Issues for WebView App Compatibility
+# Complete UniversFlow App Rebuild Prompt
 
-Based on my investigation, I've identified why appsgeyser.com shows a black screen and found several issues that need fixing. This plan addresses all problems to make your app work with any URL-to-APK converter tool.
+I've thoroughly analyzed the entire codebase and will create an enhanced, comprehensive rebuild specification document. The existing `REBUILD_PROMPT.md` is a good foundation but needs more detailed component code, edge function logic, and specific implementation details.
 
-## Why AppsGeyser Shows Black Screen
+## Plan Overview
 
-Simple WebView wrappers like AppsGeyser fail because:
-1. **Modern JavaScript features** not supported in older WebViews
-2. **Infinite loading states** when network is slow
-3. **Complex animations** that crash older Android WebViews
-4. **Strict CSP/CORS issues** with external resources
-5. **localStorage errors** in some WebView configurations
+### What I'll Create
+A comprehensive technical specification document (`REBUILD_PROMPT.md`) that contains everything needed to rebuild the exact UniversFlow app from scratch. This will be organized into the following sections:
 
 ---
 
-## Issues to Fix
+## 1. Project Initialization
+- React 18 + Vite + TypeScript setup
+- Tailwind CSS configuration with custom design tokens
+- Framer Motion for animations
+- All npm dependencies with exact versions
 
-### Issue 1: Library Sections Flickering Loop
-**Problem**: The Library page sections (Liked Songs, Saved) crash/flicker when playing songs
-**Root Cause**: Components re-render excessively due to player state changes
+## 2. Complete Database Schema
+- All 16+ tables with full SQL CREATE statements
+- All RLS (Row Level Security) policies
+- Database functions and triggers
+- Storage buckets configuration
+- Enum types for subscriptions
 
-**Solution**: Stabilize the Library page by:
-- Decoupling song list from volatile `isPlaying` state
-- Using stable refs for animation states
-- Memoizing song list items with proper keys
+## 3. Authentication System
+- AuthContext with full implementation
+- Email/password signup and login
+- Google OAuth integration
+- Admin role checking
+- Share code generation for friend referrals
 
-### Issue 2: Non-Working Player Buttons (Screenshot)
-**Problem**: Forward/backward skip buttons don't work in fullscreen player
-**Solution**: Ensure `playNext` and `playPrevious` functions are properly connected to the button handlers
+## 4. Player Engine Architecture
+- PlayerContext with dual audio element system
+- Crossfade implementation logic
+- Queue management (shuffle, repeat, navigation)
+- MediaSession API for lock screen controls
+- Pre-roll ad integration for free users
 
-### Issue 3: Remove Lyrics (Mic) Button
-**Problem**: User wants lyrics button removed
-**Solution**: Already removed in previous edit - will verify it's gone
+## 5. All Component Specifications
 
-### Issue 4: Favorites Only in Library
-**Problem**: User wants favorites displayed only in Library
-**Solution**: Already moved in previous edit - will verify
+**Layout Components:**
+- MobileShell (390px fixed viewport)
+- BottomNav (scroll-responsive, glassmorphism)
+- MiniPlayer (swipe gestures, progress tracking)
+- FullscreenPlayer (album art, controls, reactions)
 
-### Issue 5: Refer System Not Working
-**Problem**: Friend referral system fails
-**Root Cause**: The share code might not be generated for existing users
-**Solution**: 
-- Fix share code generation in AuthContext
-- Add fallback for users without share codes
-- Fix the AddFriend page to properly handle referral links
+**Core Components:**
+- SongCard, SplashScreen, PWAInstallBanner
+- HorizontalSection, FeaturedArtistsSection
+- EqualizerModal, QueueDrawer
+- OfflineIndicator, PullToRefresh
 
-### Issue 6: WebView Compatibility (AppsGeyser Black Screen)
-**Problem**: App crashes in simple WebView wrappers
-**Solution**: Add WebView fallbacks and compatibility fixes
+**Social Components:**
+- FriendsManager, DedicationsInbox
+- SendDedicationModal, SocialShareModal
 
----
+**Premium Components:**
+- PremiumGate, RedeemCodeModal
+- PrerollAd system
 
-## Technical Implementation
+## 6. All Pages (20+)
+- Auth (Login/Signup with Google)
+- Home (sections: New Releases, Recommended, Featured Artists, Trending)
+- Search (real-time search, genre/mood filters)
+- Library (tabs: Liked, Playlists, Artists, Downloads)
+- Profile (premium status, stats, settings)
+- Offline (dedicated offline playback page)
+- PlaylistDetail, ArtistDetail
 
-### Step 1: Fix Library Stability
+## 7. Complete Admin Panel (28 Pages)
+- Dashboard with stats and charts
+- Upload Music (YouTube extraction + direct upload)
+- Manage Songs, Artists, Albums, Playlists, Users
+- Subscriptions management
+- Promo Codes generator
+- Revenue Analytics with Recharts
+- User Engagement (DAU/WAU metrics)
+- A/B Testing management
+- Push Notifications
+- API Management
+- Security Center
+- Feature Flags
+- Content Moderation
+- System Health monitoring
+- Backup/Export tools
+- Content Scheduler
 
-Update `src/pages/Library.tsx`:
-- Use stable `currentSong.id` for active state
-- Remove `isPlaying` dependency from render logic
-- Wrap song items in memoized components
+## 8. Custom Hooks
+- useAuth, usePlayer, usePremium
+- useMediaSession, useAudioVisualizer
+- useLike, useSongCache, useImageCache
+- useOfflineAudio (IndexedDB)
+- useHaptics (cross-platform)
+- usePullToRefresh
+- useAppSettings, useAudioSettings
+- useMedian (native bridge)
 
-### Step 2: Fix Player Buttons
+## 9. Edge Functions
+- `extract-audio`: YouTube audio extraction
+- `ai-metadata`: AI-powered metadata extraction
 
-Update `src/components/FullscreenPlayer.tsx`:
-- Verify skip buttons call `playNext()` and `playPrevious()`
-- Add null checks to prevent crashes
+## 10. CSS/Styling
+- Complete index.css with:
+  - Apple Music dark theme CSS variables
+  - Glassmorphism classes (.glass, .glass-strong)
+  - Gradient text utilities
+  - Mobile-only viewport constraints
+  - Safe area handling
 
-### Step 3: Fix Refer System
+## 11. Animation System
+- Framer Motion spring configurations
+- iOS-style bounce animations
+- Page transitions
+- Scroll-responsive show/hide for nav
 
-Update `src/contexts/AuthContext.tsx`:
-- Ensure share_code is created for all users
-- Add migration for existing users without codes
+## 12. PWA Configuration
+- manifest.json specification
+- Service worker setup
+- Icon sizes (192, 512, maskable variants)
 
-Update `src/pages/AddFriend.tsx`:
-- Fix friend request creation
-- Add proper error handling
-
-Update `src/pages/Profile.tsx`:
-- Ensure share code displays correctly
-- Add fallback generation if missing
-
-### Step 4: Add WebView Compatibility
-
-Update `index.html`:
-- Add WebView-specific meta tags
-- Add JavaScript error catching
-- Add fallback for unsupported features
-
-Update `src/main.tsx`:
-- Add global error boundary
-- Add WebView detection
-- Add fallback rendering for critical failures
-
-Create `src/components/WebViewFallback.tsx`:
-- Simple fallback UI for when main app fails
-- No animations or complex features
-
-Update `src/index.css`:
-- Add WebView-safe animation fallbacks
-- Reduce complex CSS for older WebViews
-
-### Step 5: Simplify Splash Screen for WebView
-
-Update `src/components/SplashScreen.tsx`:
-- Add simpler fallback for WebViews
-- Reduce animation complexity
-- Shorter auto-skip timeout
-
----
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/pages/Library.tsx` | Stabilize rendering, fix flickering |
-| `src/components/FullscreenPlayer.tsx` | Fix skip buttons |
-| `src/contexts/AuthContext.tsx` | Fix share_code generation |
-| `src/pages/AddFriend.tsx` | Fix friend request flow |
-| `src/pages/Profile.tsx` | Fix share code display |
-| `index.html` | Add WebView compatibility meta |
-| `src/main.tsx` | Add global error handling |
-| `src/components/SplashScreen.tsx` | Simplify for WebViews |
-| `src/index.css` | Add animation fallbacks |
-
----
-
-## After These Fixes
-
-Once implemented:
-1. **Library** will no longer flicker when playing songs
-2. **Player buttons** will work correctly
-3. **Refer system** will properly create friend connections
-4. **AppsGeyser** and similar tools should work because:
-   - Graceful error handling prevents black screens
-   - Simplified animations for older WebViews
-   - Fallback UI shows if something fails
+## 13. Capacitor Mobile Build
+- Android configuration
+- GitHub Actions workflow for APK builds
+- Native feature bridges
 
 ---
 
-## Using AppsGeyser After Fix
+## Technical Specifications Included
 
-After I make these changes:
-1. Go to **appsgeyser.com**
-2. Choose "Website to App"
-3. Enter your URL: `https://universflowapp.lovable.app`
-4. The app should now load without black screen!
+### Color Palette (HSL Values)
+```text
+Background: 0 0% 0% (Pure black)
+Primary: 350 100% 60% (Rose/Red - Apple Music style)
+Accent: 330 100% 65% (Pink/Magenta)
+Muted: 0 0% 15%
+Glass Background: rgba(18, 18, 18, 0.75) + blur(40px)
+```
 
-If it still shows issues, we can also set up the GitHub Actions APK build which creates a proper native app (better quality than AppsGeyser).
+### Animation Configs
+```text
+iOS Spring: stiffness 300, damping 25
+iOS Bounce: stiffness 400, damping 30
+Scale on tap: 0.95 (buttons), 0.88 (nav items)
+MiniPlayer entrance: blur(10px) -> 0, scale(0.95) -> 1
+```
+
+### Key Metrics
+- Minimum touch target: 48px
+- MiniPlayer height: ~72px
+- BottomNav height: ~56px
+- Bottom padding for content: 140-160px
+- Album art in FullscreenPlayer: 85vw, max 340px
+
+---
+
+## What This Document Enables
+
+1. **Another AI** can read this and rebuild the exact same app
+2. **Developers** can use it as a technical specification
+3. **Project handoff** with complete documentation
+4. **Recovery** if the project is lost
+
+The document will be approximately 1500+ lines of comprehensive technical specification.

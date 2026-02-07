@@ -49,11 +49,17 @@ jobs:
 
       - name: Integrate Android widgets
         run: |
-          # Create widget package directory
-          mkdir -p android/app/src/main/java/app/lovable/universflow
+          # Create widget package directory (matching the package name in Java files)
+          mkdir -p android/app/src/main/java/app/lovable/universflow/widgets
           
-          # Copy Java widget files
-          cp android-widgets/java/*.java android/app/src/main/java/app/lovable/universflow/
+          # Copy Java widget files to the widgets subdirectory
+          cp android-widgets/java/*.java android/app/src/main/java/app/lovable/universflow/widgets/
+          
+          # Fix the import for R class in all Java files
+          for file in android/app/src/main/java/app/lovable/universflow/widgets/*.java; do
+            # Add import for the R class from the app package
+            sed -i 's/package app.lovable.universflow.widgets;/package app.lovable.universflow.widgets;\n\nimport app.lovable.universflow.R;/' "$file"
+          done
           
           # Copy drawable resources
           cp android-widgets/res/drawable/*.xml android/app/src/main/res/drawable/
@@ -65,7 +71,7 @@ jobs:
           mkdir -p android/app/src/main/res/xml
           cp android-widgets/res/xml/*.xml android/app/src/main/res/xml/
           
-          # Merge string resources properly (remove XML declaration and root tags from widget strings)
+          # Merge string resources properly
           # First, remove the closing </resources> tag from the base strings.xml
           sed -i '/<\/resources>/d' android/app/src/main/res/values/strings.xml
           # Extract only the <string> elements from widget strings (skip XML declaration and root tags)
@@ -76,28 +82,29 @@ jobs:
       - name: Update AndroidManifest.xml for widgets
         run: |
           # Add widget receivers and service to AndroidManifest.xml
+          # Using the correct package path (.widgets.ClassName)
           sed -i 's/<\/application>/\
               <!-- Widget Receivers -->\
-              <receiver android:name=".NowPlayingWidget" android:exported="false">\
+              <receiver android:name=".widgets.NowPlayingWidget" android:exported="false">\
                   <intent-filter>\
                       <action android:name="android.appwidget.action.APPWIDGET_UPDATE" \/>\
                   <\/intent-filter>\
                   <meta-data android:name="android.appwidget.provider" android:resource="@xml\/now_playing_widget_info" \/>\
               <\/receiver>\
-              <receiver android:name=".FavoritesWidget" android:exported="false">\
+              <receiver android:name=".widgets.FavoritesWidget" android:exported="false">\
                   <intent-filter>\
                       <action android:name="android.appwidget.action.APPWIDGET_UPDATE" \/>\
                   <\/intent-filter>\
                   <meta-data android:name="android.appwidget.provider" android:resource="@xml\/favorites_widget_info" \/>\
               <\/receiver>\
-              <receiver android:name=".QuickActionsWidget" android:exported="false">\
+              <receiver android:name=".widgets.QuickActionsWidget" android:exported="false">\
                   <intent-filter>\
                       <action android:name="android.appwidget.action.APPWIDGET_UPDATE" \/>\
                   <\/intent-filter>\
                   <meta-data android:name="android.appwidget.provider" android:resource="@xml\/quick_actions_widget_info" \/>\
               <\/receiver>\
               <!-- Widget Update Service -->\
-              <service android:name=".WidgetUpdateService" android:exported="false" \/>\
+              <service android:name=".widgets.WidgetUpdateService" android:exported="false" \/>\
           <\/application>/g' android/app/src/main/AndroidManifest.xml
 
       - name: Sync Capacitor

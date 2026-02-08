@@ -5,6 +5,7 @@ import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { useSongCache } from '@/hooks/useSongCache';
 import SongCard from '@/components/SongCard';
 import HorizontalSection from '@/components/HorizontalSection';
+import AllSongsSection from '@/components/AllSongsSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import SleepTimerModal from '@/components/SleepTimerModal';
 import QueueDrawer from '@/components/QueueDrawer';
@@ -223,17 +224,9 @@ const Home = () => {
                 </HorizontalSection>
               )}
 
-              {/* All Songs Section - Show complete catalog */}
+              {/* All Songs Section - Beautiful grid/list view */}
               {allSongs.length > 0 && (
-                <HorizontalSection 
-                  title="All Songs" 
-                  subtitle={`${allSongs.length} tracks available`} 
-                  songs={allSongs}
-                >
-                  {allSongs.map((song, i) => (
-                    <SongCard key={song.id} song={song} index={i} sectionSongs={allSongs} />
-                  ))}
-                </HorizontalSection>
+                <AllSongsSection songs={allSongs} />
               )}
             </div>
           )}

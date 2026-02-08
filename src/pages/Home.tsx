@@ -205,7 +205,8 @@ const Home = () => {
           ) : songs.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-1">
+              {/* New Releases - Fresh content first */}
               {newReleases.length > 0 && (
                 <HorizontalSection title="New Releases" subtitle="Fresh tracks" songs={newReleases}>
                   {newReleases.map((song, i) => (
@@ -214,8 +215,7 @@ const Home = () => {
                 </HorizontalSection>
               )}
 
-              <FeaturedArtistsSection />
-
+              {/* Trending - What's hot now */}
               {trendingSongs.length > 0 && (
                 <HorizontalSection title="Trending" subtitle="What's hot" songs={trendingSongs}>
                   {trendingSongs.map((song, i) => (
@@ -223,6 +223,9 @@ const Home = () => {
                   ))}
                 </HorizontalSection>
               )}
+
+              {/* Featured Artists - Discover creators */}
+              <FeaturedArtistsSection />
 
               {/* All Songs Section - Beautiful grid/list view */}
               {allSongs.length > 0 && (

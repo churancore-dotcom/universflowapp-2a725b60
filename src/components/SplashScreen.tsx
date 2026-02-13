@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
+import appLogo from '@/assets/app-logo.png';
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -64,8 +65,8 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
         {/* Glassmorphism logo container */}
         <motion.div
           className="relative"
-          initial={{ scale: 0.3, opacity: 0, rotateY: -90 }}
-          animate={{ scale: 1, opacity: 1, rotateY: 0 }}
+          initial={{ scale: 0.3, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
           transition={{
             type: 'spring',
             stiffness: 200,
@@ -75,62 +76,42 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
         >
           {/* Outer glow ring */}
           <motion.div
-            className="absolute -inset-4 rounded-full"
+            className="absolute -inset-6 rounded-full"
             style={{
               background: 'conic-gradient(from 0deg, hsl(340 100% 50% / 0.4), hsl(260 100% 60% / 0.3), hsl(210 100% 60% / 0.3), hsl(340 100% 50% / 0.4))',
-              filter: 'blur(20px)',
+              filter: 'blur(24px)',
             }}
             animate={{ rotate: 360 }}
             transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
           />
 
-          {/* Glass card */}
+          {/* Circular logo container */}
           <div
-            className="w-32 h-32 rounded-[28px] flex items-center justify-center relative overflow-hidden"
+            className="w-36 h-36 rounded-full flex items-center justify-center relative overflow-hidden"
             style={{
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.01) 100%)',
               backdropFilter: 'blur(40px)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              boxShadow: '0 25px 60px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+              border: '1.5px solid rgba(255,255,255,0.10)',
+              boxShadow: '0 0 60px 10px hsl(260 100% 60% / 0.25), 0 0 120px 30px hsl(340 100% 50% / 0.15), inset 0 1px 0 rgba(255,255,255,0.08)',
             }}
           >
-            {/* Inner shine */}
+            {/* Inner shine sweep */}
             <motion.div
-              className="absolute inset-0"
+              className="absolute inset-0 rounded-full"
               style={{
-                background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.06) 45%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 55%, transparent 60%)',
+                background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.08) 45%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0.08) 55%, transparent 60%)',
               }}
               initial={{ x: '-100%' }}
               animate={{ x: '200%' }}
               transition={{ duration: 2, delay: 0.8, ease: 'easeInOut' }}
             />
 
-            {/* "U" Logo */}
-            <svg width="60" height="60" viewBox="0 0 64 64">
-              <defs>
-                <linearGradient id="uGradSplash" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#FF2D55" />
-                  <stop offset="50%" stopColor="#BF5AF2" />
-                  <stop offset="100%" stopColor="#5E5CE6" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M18 16 L18 38 C18 49 25 55 32 55 C39 55 46 49 46 38 L46 16"
-                stroke="url(#uGradSplash)"
-                strokeWidth="4.5"
-                strokeLinecap="round"
-                fill="none"
-              />
-              <motion.circle
-                cx="32"
-                cy="12"
-                r="2.5"
-                fill="#FF2D55"
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.8, type: 'spring', stiffness: 400 }}
-              />
-            </svg>
+            {/* App logo image */}
+            <img
+              src={appLogo}
+              alt="UniversFlow Logo"
+              className="w-full h-full object-cover rounded-full"
+            />
           </div>
         </motion.div>
 

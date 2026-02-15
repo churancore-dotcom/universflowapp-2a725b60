@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, memo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -69,15 +69,25 @@ const Home = () => {
 
   const allSongs = useMemo(() => songs, [songs]);
 
+  // Debounced real-time refetch to prevent query storms with 2000+ users
+  const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     fetchSongs();
 
     const channel = supabase
       .channel('songs-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, fetchSongs)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, () => {
+        // Debounce: wait 2s after last change before refetching
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(fetchSongs, 2000);
+      })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchSongs = useCallback(async () => {
@@ -85,7 +95,8 @@ const Home = () => {
       .from('songs')
       .select('*, artists(id, name, photo_url)')
       .eq('is_visible', true)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(200); // Cap at 200 songs to prevent massive payloads
 
     if (data) {
       const mappedSongs = data.map(s => {

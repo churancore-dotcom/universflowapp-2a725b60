@@ -57,7 +57,16 @@ import AddFriend from "./pages/AddFriend";
 import Offline from "./pages/Offline";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000, // 2 minutes - reduce redundant refetches
+      gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
+      retry: 1, // Only 1 retry to reduce load
+      refetchOnWindowFocus: false, // Prevent refetch storms on tab switch
+    },
+  },
+});
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading, isOffline } = useAuth();

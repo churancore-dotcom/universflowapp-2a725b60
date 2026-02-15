@@ -35,7 +35,6 @@ const ArtistCard = memo(({ artist, index }: ArtistCardProps) => {
       transition={{ delay: index * 0.05, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       whileTap={{ scale: 0.92 }}
     >
-      {/* Avatar with animated gradient ring */}
       <div className="relative w-[64px] h-[64px] mx-auto mb-2">
         <div 
           className="absolute -inset-[3px] rounded-full opacity-60"
@@ -85,24 +84,24 @@ const FeaturedArtistsSection = () => {
 
   useEffect(() => {
     const fetchArtists = async () => {
-      const { data: artistsData } = await supabase
-        .from('artists')
-        .select('id, name, photo_url, genre');
+      // Single query: fetch artists + count songs via a joined count approach
+      // Instead of N+1 queries, fetch all songs grouped by artist_id
+      const [artistsRes, songCountsRes] = await Promise.all([
+        supabase.from('artists').select('id, name, photo_url, genre'),
+        supabase.from('songs').select('artist_id').eq('is_visible', true).not('artist_id', 'is', null),
+      ]);
 
-      if (artistsData) {
-        const artistsWithCounts = await Promise.all(
-          artistsData.map(async (artist) => {
-            const { count } = await supabase
-              .from('songs')
-              .select('*', { count: 'exact', head: true })
-              .eq('artist_id', artist.id)
-              .eq('is_visible', true);
+      if (artistsRes.data && songCountsRes.data) {
+        // Count songs per artist in memory (O(n))
+        const countMap = new Map<string, number>();
+        for (const song of songCountsRes.data) {
+          if (song.artist_id) {
+            countMap.set(song.artist_id, (countMap.get(song.artist_id) || 0) + 1);
+          }
+        }
 
-            return { ...artist, song_count: count || 0 };
-          })
-        );
-
-        const sorted = artistsWithCounts
+        const sorted = artistsRes.data
+          .map(a => ({ ...a, song_count: countMap.get(a.id) || 0 }))
           .filter(a => a.song_count > 0)
           .sort((a, b) => b.song_count - a.song_count)
           .slice(0, 12);
@@ -119,7 +118,6 @@ const FeaturedArtistsSection = () => {
 
   return (
     <section className="mb-1">
-      {/* Glassmorphism section container */}
       <div
         className="rounded-2xl p-3 pb-2"
         style={{
@@ -128,7 +126,6 @@ const FeaturedArtistsSection = () => {
           backdropFilter: 'blur(20px)',
         }}
       >
-        {/* Header */}
         <div className="flex items-center gap-1.5 mb-3">
           <div className="w-5 h-5 rounded-md bg-primary/15 flex items-center justify-center">
             <Sparkles className="w-3 h-3 text-primary" />
@@ -136,7 +133,6 @@ const FeaturedArtistsSection = () => {
           <h2 className="text-sm font-bold tracking-tight text-foreground">Featured Artists</h2>
         </div>
         
-        {/* Horizontal scroll */}
         <div 
           className="flex gap-2.5 overflow-x-auto pb-1 hide-scrollbar snap-x snap-mandatory -mx-3 px-3"
           style={{ WebkitOverflowScrolling: 'touch' }}

@@ -1,4 +1,4 @@
-import { useState, useEffect, memo, useCallback } from 'react';
+import { useState, useEffect, memo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,12 +42,12 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
   const [newComment, setNewComment] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchReactionsAndComments = useCallback(async () => {
     if (!songId) return;
 
     try {
-      // Fetch reactions - cast to any since types aren't synced yet
       const { data: reactionsData } = await (supabase as any)
         .from('song_reactions')
         .select('emoji, user_id')
@@ -66,7 +66,6 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
         setReactions(reactionMap);
       }
 
-      // Fetch comments with username from profiles join
       const { data: commentsData } = await supabase
         .from('song_comments')
         .select('id, user_id, content, created_at')
@@ -75,7 +74,6 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
         .limit(20);
 
       if (commentsData) {
-        // Fetch usernames for all comment authors
         const userIds = [...new Set(commentsData.map(c => c.user_id))];
         const { data: profilesData } = await supabase
           .from('profiles')
@@ -96,18 +94,29 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
     }
   }, [songId, user?.id]);
 
+  // Debounced refetch for real-time updates to avoid query storms
+  const debouncedRefetch = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchReactionsAndComments();
+    }, 1000); // 1s debounce - prevents refetch storms from multiple users
+  }, [fetchReactionsAndComments]);
+
   useEffect(() => {
     fetchReactionsAndComments();
 
-    // Subscribe to real-time updates
+    // Subscribe to real-time updates with debounced handler
     const channel = supabase
       .channel(`song-reactions-${songId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'song_reactions', filter: `song_id=eq.${songId}` }, fetchReactionsAndComments)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'song_comments', filter: `song_id=eq.${songId}` }, fetchReactionsAndComments)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'song_reactions', filter: `song_id=eq.${songId}` }, debouncedRefetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'song_comments', filter: `song_id=eq.${songId}` }, debouncedRefetch)
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [songId, fetchReactionsAndComments]);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, [songId, fetchReactionsAndComments, debouncedRefetch]);
 
   const handleReaction = async (emoji: string) => {
     if (!user) {
@@ -119,7 +128,6 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
       const reaction = reactions[emoji];
       
       if (reaction?.hasReacted) {
-        // Remove reaction
         await (supabase as any)
           .from('song_reactions')
           .delete()
@@ -127,7 +135,6 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
           .eq('user_id', user.id)
           .eq('emoji', emoji);
       } else {
-        // Add reaction
         await (supabase as any)
           .from('song_reactions')
           .insert({
@@ -137,7 +144,15 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
           });
       }
       
-      fetchReactionsAndComments();
+      // Optimistic update instead of refetch
+      setReactions(prev => ({
+        ...prev,
+        [emoji]: {
+          emoji,
+          count: reaction?.hasReacted ? (reaction.count - 1) : ((reaction?.count || 0) + 1),
+          hasReacted: !reaction?.hasReacted,
+        }
+      }));
     } catch (error) {
       console.error('Failed to toggle reaction:', error);
       toast.error('Failed to react');
@@ -194,7 +209,6 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
           ))
         ) : null}
 
-        {/* Add reaction button */}
         <motion.button
           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
           className="w-8 h-8 rounded-full flex items-center justify-center glass"
@@ -205,7 +219,6 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
           <Smile className="w-4 h-4 text-muted-foreground" />
         </motion.button>
 
-        {/* Comments toggle */}
         <motion.button
           onClick={() => setShowComments(!showComments)}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all ${
@@ -266,7 +279,6 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
             exit={{ opacity: 0, height: 0 }}
             transition={iosSpring}
           >
-            {/* Comment input */}
             <div className="p-3 border-b border-white/5">
               <div className="flex gap-2">
                 <input
@@ -289,7 +301,6 @@ const SongReactions = memo(({ songId, songTitle }: SongReactionsProps) => {
               </div>
             </div>
 
-            {/* Comments list */}
             <div className="max-h-64 overflow-y-auto">
               {comments.length === 0 ? (
                 <p className="text-center text-muted-foreground/50 text-sm py-8">

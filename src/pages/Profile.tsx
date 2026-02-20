@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Settings, LogOut, Shield, Music, Heart, Clock, ChevronRight, BarChart3, Users, Gift, Crown, Edit2, Check, X } from 'lucide-react';
+import { User, Mail, Settings, LogOut, Shield, Music, Heart, Clock, ChevronRight, BarChart3, Crown, Edit2, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,8 +9,6 @@ import BottomNav from '@/components/BottomNav';
 import MiniPlayer from '@/components/MiniPlayer';
 import FullscreenPlayer from '@/components/FullscreenPlayer';
 import ListeningStats from '@/components/ListeningStats';
-import FriendsManager from '@/components/FriendsManager';
-import DedicationsInbox from '@/components/DedicationsInbox';
 import RedeemCodeModal from '@/components/RedeemCodeModal';
 import { SheetTransition } from '@/components/PageTransition';
 import { Input } from '@/components/ui/input';
@@ -27,8 +25,6 @@ const Profile = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ likedSongs: 0, recentPlays: 0, playlists: 0 });
   const [showStats, setShowStats] = useState(false);
-  const [showFriendsManager, setShowFriendsManager] = useState(false);
-  const [showDedications, setShowDedications] = useState(false);
   const [showRedeemCode, setShowRedeemCode] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData>({ username: null, username_changed: false });
   const [isEditingUsername, setIsEditingUsername] = useState(false);
@@ -258,16 +254,6 @@ const Profile = () => {
               <span className="flex-1 text-sm font-medium">Your Stats</span>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </button>
-            <button onClick={() => setShowFriendsManager(true)} className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-white/[0.06] active:bg-white/5">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-blue-500/20"><Users className="w-4 h-4 text-blue-400" /></div>
-              <span className="flex-1 text-sm font-medium">Friends</span>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </button>
-            <button onClick={() => setShowDedications(true)} className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-white/[0.06] active:bg-white/5">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-pink-500/20"><Gift className="w-4 h-4 text-pink-400" /></div>
-              <span className="flex-1 text-sm font-medium">Dedications</span>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </button>
             <button onClick={() => navigate('/settings')} className="w-full flex items-center gap-3 px-4 py-3 text-left border-b border-white/[0.06] active:bg-white/5">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/10"><Settings className="w-4 h-4 text-foreground" /></div>
               <span className="flex-1 text-sm font-medium">Settings</span>
@@ -304,8 +290,6 @@ const Profile = () => {
         <MiniPlayer />
         <FullscreenPlayer />
         {showStats && <ListeningStats isOpen={showStats} onClose={() => setShowStats(false)} />}
-        {showFriendsManager && <FriendsManager isOpen={showFriendsManager} onClose={() => setShowFriendsManager(false)} />}
-        {showDedications && <DedicationsInbox isOpen={showDedications} onClose={() => setShowDedications(false)} />}
         {showRedeemCode && <RedeemCodeModal isOpen={showRedeemCode} onClose={() => setShowRedeemCode(false)} />}
       </div>
     </SheetTransition>

@@ -25,7 +25,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Support = lazy(() => import("./pages/Support"));
 const OfflinePlayerShell = lazy(() => import("./components/OfflinePlayerShell"));
 const Offline = lazy(() => import("./pages/Offline"));
-const AddFriend = lazy(() => import("./pages/AddFriend"));
+
 const DownloadQueuePanel = lazy(() => import("./components/DownloadQueuePanel"));
 const PrerollAd = lazy(() => import("./components/ads/PrerollAd"));
 const PWAInstallBanner = lazy(() => import("./components/PWAInstallBanner"));
@@ -118,7 +118,7 @@ const AnimatedRoutes = () => {
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
           <Route path="/offline" element={<ProtectedRoute><Offline /></ProtectedRoute>} />
-          <Route path="/add-friend/:shareCode" element={<AddFriend />} />
+          
           <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
             <Route index element={<AdminDashboard />} />
             <Route path="upload" element={<UploadMusic />} />

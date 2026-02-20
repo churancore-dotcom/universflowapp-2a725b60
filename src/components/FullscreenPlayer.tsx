@@ -11,7 +11,7 @@ import SocialShareModal from './SocialShareModal';
 import AddToPlaylistModal from './AddToPlaylistModal';
 import CreatePlaylistModal from './CreatePlaylistModal';
 import SongReactions from './SongReactions';
-import SendDedicationModal from './SendDedicationModal';
+
 import { triggerHaptic } from '@/hooks/useHaptics';
 
 const formatTime = (seconds: number) => {
@@ -80,7 +80,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
-  const [showDedicationModal, setShowDedicationModal] = useState(false);
+  
   const [direction, setDirection] = useState(0); // -1 prev, 1 next
   const prevSongIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
@@ -363,13 +363,6 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
               <div className="flex items-center justify-around">
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
-                  onClick={() => { triggerHaptic('selection'); setShowDedicationModal(true); }}
-                >
-                  <Heart className="w-[18px] h-[18px] text-white/60" />
-                </button>
-
-                <button 
-                  className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
                   onClick={() => { triggerHaptic('selection'); setShowShareModal(true); }}
                 >
                   <Share2 className="w-[18px] h-[18px] text-white/60" />
@@ -394,7 +387,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
       {showShareModal && <SocialShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} song={currentSong} />}
       {showPlaylistModal && <AddToPlaylistModal isOpen={showPlaylistModal} onClose={() => setShowPlaylistModal(false)} song={currentSong} onCreateNew={() => setShowCreatePlaylist(true)} />}
       {showCreatePlaylist && <CreatePlaylistModal isOpen={showCreatePlaylist} onClose={() => setShowCreatePlaylist(false)} onCreated={() => {}} />}
-      {showDedicationModal && <SendDedicationModal isOpen={showDedicationModal} onClose={() => setShowDedicationModal(false)} song={currentSong} />}
+      
     </>
   );
 });

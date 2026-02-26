@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Music, Users, PlayCircle, TrendingUp, Upload, Disc, Clock, Download, Activity, BarChart3 } from 'lucide-react';
+import { Music, Users, PlayCircle, TrendingUp, Upload, Disc, Clock, Download, Activity, BarChart3, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 interface Stats {
   totalSongs: number;
@@ -28,24 +28,57 @@ const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', '#22c55e', '#
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState<Stats>({ 
-    totalSongs: 0, 
-    totalUsers: 0, 
-    totalPlays: 0, 
-    totalAlbums: 0,
-    totalDownloads: 0,
-    storageUsed: 0
+    totalSongs: 0, totalUsers: 0, totalPlays: 0, 
+    totalAlbums: 0, totalDownloads: 0, storageUsed: 0
   });
-  const [recentSongs, setRecentSongs] = useState<any[]>([]);
   const [playData, setPlayData] = useState<PlayData[]>([]);
   const [genreData, setGenreData] = useState<GenreData[]>([]);
   const [topSongs, setTopSongs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const navigate = useNavigate();
 
+  const fetchAll = useCallback(async () => {
+    await Promise.all([fetchStats(), fetchChartData(), fetchRecentPlaysChart()]);
+    setLastRefresh(new Date());
+  }, []);
+
   useEffect(() => {
-    fetchStats();
-    fetchRecentSongs();
-    fetchChartData();
+    fetchAll();
+
+    // Real-time subscriptions
+    const songChannel = supabase
+      .channel('admin-songs-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, () => {
+        fetchStats();
+        fetchChartData();
+      })
+      .subscribe();
+
+    const profileChannel = supabase
+      .channel('admin-profiles-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        fetchStats();
+      })
+      .subscribe();
+
+    const recentChannel = supabase
+      .channel('admin-recently-played-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'recently_played' }, () => {
+        fetchRecentPlaysChart();
+        fetchStats();
+      })
+      .subscribe();
+
+    // Auto-refresh every 30s as fallback
+    const interval = setInterval(fetchAll, 30000);
+
+    return () => {
+      supabase.removeChannel(songChannel);
+      supabase.removeChannel(profileChannel);
+      supabase.removeChannel(recentChannel);
+      clearInterval(interval);
+    };
   }, []);
 
   const fetchStats = async () => {
@@ -56,9 +89,9 @@ const AdminDashboard = () => {
     ]);
 
     const songs = songsRes.data || [];
-    const totalPlays = songs.reduce((acc, song) => acc + (song.play_count || 0), 0);
-    const totalDownloads = songs.reduce((acc, song) => acc + (song.download_count || 0), 0);
-    const storageUsed = songs.reduce((acc, song) => acc + (song.file_size || 0) + (song.cover_size || 0), 0);
+    const totalPlays = songs.reduce((acc, s) => acc + (s.play_count || 0), 0);
+    const totalDownloads = songs.reduce((acc, s) => acc + (s.download_count || 0), 0);
+    const storageUsed = songs.reduce((acc, s) => acc + (s.file_size || 0) + (s.cover_size || 0), 0);
 
     setStats({
       totalSongs: songs.length,
@@ -71,36 +104,50 @@ const AdminDashboard = () => {
     setLoading(false);
   };
 
-  const fetchRecentSongs = async () => {
-    const { data } = await supabase
-      .from('songs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(5);
-    setRecentSongs(data || []);
+  const fetchRecentPlaysChart = async () => {
+    // Get actual play data from recently_played for last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const { data: recentPlays } = await supabase
+      .from('recently_played')
+      .select('played_at')
+      .gte('played_at', sevenDaysAgo.toISOString())
+      .order('played_at', { ascending: true });
+
+    // Group by day
+    const dayMap: Record<string, number> = {};
+    const days: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      const key = d.toISOString().split('T')[0];
+      const label = d.toLocaleDateString('en-US', { weekday: 'short' });
+      dayMap[key] = 0;
+      days.push(key);
+    }
+
+    (recentPlays || []).forEach(rp => {
+      const key = rp.played_at.split('T')[0];
+      if (dayMap[key] !== undefined) dayMap[key]++;
+    });
+
+    const chartData = days.map(key => ({
+      date: new Date(key).toLocaleDateString('en-US', { weekday: 'short' }),
+      plays: dayMap[key],
+    }));
+
+    setPlayData(chartData);
   };
 
   const fetchChartData = async () => {
-    // Fetch songs for chart data
     const { data: songs } = await supabase
       .from('songs')
-      .select('created_at, play_count, genre')
-      .order('created_at', { ascending: true });
+      .select('genre, play_count, id, title, artist, cover_url')
+      .order('play_count', { ascending: false });
 
     if (songs) {
-      // Generate play data for last 7 days (simulated from actual data)
-      const last7Days = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date();
-        date.setDate(date.getDate() - (6 - i));
-        return date.toLocaleDateString('en-US', { weekday: 'short' });
-      });
-      
-      const playsPerDay = last7Days.map((day, i) => ({
-        date: day,
-        plays: Math.floor((songs.reduce((acc, s) => acc + (s.play_count || 0), 0) / 7) * (0.5 + Math.random())),
-      }));
-      setPlayData(playsPerDay);
-
       // Genre distribution
       const genreCounts: Record<string, number> = {};
       songs.forEach(song => {
@@ -108,20 +155,15 @@ const AdminDashboard = () => {
         genreCounts[genre] = (genreCounts[genre] || 0) + 1;
       });
       
-      const genreArray = Object.entries(genreCounts)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 6);
-      setGenreData(genreArray);
-    }
+      setGenreData(
+        Object.entries(genreCounts)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 6)
+      );
 
-    // Fetch top songs
-    const { data: top } = await supabase
-      .from('songs')
-      .select('id, title, artist, play_count, cover_url')
-      .order('play_count', { ascending: false })
-      .limit(5);
-    setTopSongs(top || []);
+      setTopSongs(songs.slice(0, 5));
+    }
   };
 
   const formatBytes = (bytes: number) => {
@@ -154,10 +196,21 @@ const AdminDashboard = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
+        className="mb-8 flex items-center justify-between"
       >
-        <h1 className="text-2xl md:text-3xl font-display font-bold">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Overview of your music platform</p>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-display font-bold">Dashboard</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Live overview · Updated {lastRefresh.toLocaleTimeString()}
+          </p>
+        </div>
+        <button
+          onClick={fetchAll}
+          className="p-2 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
+          title="Refresh now"
+        >
+          <RefreshCw className="w-5 h-5" />
+        </button>
       </motion.div>
 
       {/* Stats Grid */}
@@ -186,7 +239,7 @@ const AdminDashboard = () => {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Plays Chart */}
+        {/* Plays Chart — REAL DATA */}
         <motion.div
           className="glass rounded-2xl p-6"
           initial={{ opacity: 0, x: -20 }}
@@ -196,6 +249,7 @@ const AdminDashboard = () => {
           <h2 className="text-lg font-display font-bold mb-4 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-primary" />
             Plays This Week
+            <span className="ml-auto text-xs font-normal text-muted-foreground">Real-time</span>
           </h2>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
@@ -242,26 +296,12 @@ const AdminDashboard = () => {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={genreData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={70}
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
+                  <Pie data={genreData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2} dataKey="value">
                     {genreData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--background))', 
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px'
-                    }} 
-                  />
+                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -280,15 +320,9 @@ const AdminDashboard = () => {
         </motion.div>
       </div>
 
-      {/* Quick Actions & Recent Songs */}
+      {/* Quick Actions & Top Songs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Quick Actions */}
-        <motion.div
-          className="glass rounded-2xl p-6"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
-        >
+        <motion.div className="glass rounded-2xl p-6" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }}>
           <h2 className="text-lg font-display font-bold mb-4">Quick Actions</h2>
           <div className="grid grid-cols-2 gap-3">
             {quickActions.map((action, index) => {
@@ -312,25 +346,16 @@ const AdminDashboard = () => {
           </div>
         </motion.div>
 
-        {/* Top Songs */}
-        <motion.div
-          className="glass rounded-2xl p-6"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.45 }}
-        >
+        <motion.div className="glass rounded-2xl p-6" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.45 }}>
           <h2 className="text-lg font-display font-bold mb-4 flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-primary" />
-            Top Songs
+            Top Songs by Plays
           </h2>
           {topSongs.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Music className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>No songs yet</p>
-              <button
-                className="mt-3 text-primary hover:underline text-sm"
-                onClick={() => navigate('/admin/upload')}
-              >
+              <button className="mt-3 text-primary hover:underline text-sm" onClick={() => navigate('/admin/upload')}>
                 Upload your first song
               </button>
             </div>
@@ -359,7 +384,7 @@ const AdminDashboard = () => {
                     <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {(song.play_count || 0).toLocaleString()}
+                    {(song.play_count || 0).toLocaleString()} plays
                   </span>
                 </motion.div>
               ))}

@@ -99,24 +99,10 @@ export const TabTransition = ({ children, className = '' }: PageTransitionProps)
     <motion.div
       className={className}
       style={{ willChange: 'transform, opacity' }}
-      initial={{ 
-        opacity: 0, 
-        y: 8,
-      }}
-      animate={{ 
-        opacity: 1, 
-        y: 0,
-      }}
-      exit={{ 
-        opacity: 0,
-        position: 'absolute',
-        inset: 0,
-      }}
-      transition={{
-        type: "tween",
-        duration: 0.15,
-        ease: [0.25, 0.1, 0.25, 1],
-      }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.12, ease: "easeOut" }}
     >
       {children}
     </motion.div>

@@ -100,43 +100,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-    if (error) {
-      return { error: error as Error };
-    }
-
-    // Check if admin and ensure share_code exists for existing users
-    if (data.user) {
-      // Check share_code
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('share_code')
-        .eq('user_id', data.user.id)
-        .single();
-      
-      if (profile && !profile.share_code) {
-        const newShareCode = Math.random().toString(36).substring(2, 10);
-        await supabase.from('profiles').update({ share_code: newShareCode }).eq('user_id', data.user.id);
+      if (error) {
+        return { error: error as Error };
       }
-      
-      // Check admin via user_roles
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', data.user.id)
-        .eq('role', 'admin')
-        .maybeSingle();
-      
-      const adminStatus = !!roleData;
-      setIsAdmin(adminStatus);
-      return { error: null, isAdmin: adminStatus };
-    }
 
-    return { error: null, isAdmin: false };
+      // Do admin/profile checks in background — don't block login
+      if (data.user) {
+        const userId = data.user.id;
+        
+        // Fire-and-forget: ensure share_code exists (don't block login)
+        Promise.resolve(
+          supabase
+            .from('profiles')
+            .select('share_code')
+            .eq('user_id', userId)
+            .single()
+        ).then(({ data: profile }) => {
+          if (profile && !profile.share_code) {
+            const newShareCode = Math.random().toString(36).substring(2, 10);
+            supabase.from('profiles').update({ share_code: newShareCode }).eq('user_id', userId);
+          }
+        }).catch(() => {});
+
+        // Check admin — with timeout so login doesn't hang
+        try {
+          const adminPromise = supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', userId)
+            .eq('role', 'admin')
+            .maybeSingle();
+          
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('timeout')), 3000)
+          );
+          
+          const { data: roleData } = await Promise.race([adminPromise, timeoutPromise]) as any;
+          const adminStatus = !!roleData;
+          setIsAdmin(adminStatus);
+          return { error: null, isAdmin: adminStatus };
+        } catch {
+          // Timeout or error — still let user in, check admin later
+          setIsAdmin(false);
+          return { error: null, isAdmin: false };
+        }
+      }
+
+      return { error: null, isAdmin: false };
+    } catch (err) {
+      return { error: err instanceof Error ? err : new Error('Login failed. Check your connection.') };
+    }
   };
 
   const signOut = async () => {

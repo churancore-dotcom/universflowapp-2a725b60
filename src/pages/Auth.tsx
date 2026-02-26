@@ -5,8 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { lovable } from '@/integrations/lovable/index';
 import { FadeTransition } from '@/components/PageTransition';
 import { getAuthError } from '@/lib/errorMessages';
 import appLogo from '@/assets/app-logo.png';
@@ -209,11 +209,10 @@ const Auth = () => {
                 border: '1px solid rgba(255, 255, 255, 0.08)',
               }}
               onClick={async () => {
-                const { error } = await supabase.auth.signInWithOAuth({
-                  provider: 'google',
-                  options: { redirectTo: `${window.location.origin}/home` },
+                const result = await lovable.auth.signInWithOAuth('google', {
+                  redirect_uri: window.location.origin,
                 });
-                if (error) toast.error('Failed to sign in with Google');
+                if (result?.error) toast.error('Failed to sign in with Google');
               }}
             >
               <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">

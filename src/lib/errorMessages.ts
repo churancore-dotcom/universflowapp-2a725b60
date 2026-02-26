@@ -80,9 +80,16 @@ export const getUserFriendlyError = (error: ErrorWithCode | Error | unknown, con
     return 'File upload failed. Please try again.';
   }
 
-  // Network errors
-  if (message.includes('network') || message.includes('fetch') || message.includes('connection')) {
-    return 'Connection error. Please check your internet and try again.';
+  // Network errors — provide more actionable message
+  if (message.includes('failed to fetch') || message.includes('networkerror') || message.includes('net::err')) {
+    return 'Connection failed. Please clear your browser cache, reload the page, and try again.';
+  }
+  if (message.includes('network') || message.includes('connection')) {
+    return 'Connection issue. Please reload the page and try again.';
+  }
+  // Abort / timeout
+  if (message.includes('abort') || message.includes('timeout')) {
+    return 'Request timed out. Please try again.';
   }
 
   // Generic fallback

@@ -34,25 +34,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
+    // Clear any stale auth tokens on mount BEFORE setting up listeners
+    // This prevents the SDK from endlessly retrying a bad refresh token
+    const clearStaleTokens = () => {
+      try {
+        const keys = Object.keys(localStorage);
+        for (const key of keys) {
+          if (key.includes('auth-token') || key.includes('supabase.auth')) {
+            try {
+              const raw = localStorage.getItem(key);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                // If the token has expired or has no valid access_token, remove it
+                const expiresAt = parsed?.expires_at;
+                if (expiresAt && expiresAt * 1000 < Date.now()) {
+                  console.log('Removing expired auth token from storage');
+                  localStorage.removeItem(key);
+                }
+              }
+            } catch {
+              // If we can't parse it, it's corrupted — remove it
+              localStorage.removeItem(key);
+            }
+          }
+        }
+      } catch {}
+    };
+    
+    clearStaleTokens();
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user) {
-          setTimeout(() => checkAdminStatus(session.user.id), 0);
-        } else {
+        if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+          if (session?.user) {
+            setTimeout(() => checkAdminStatus(session.user.id), 0);
+          }
+        } else if (event === 'SIGNED_OUT') {
           setIsAdmin(false);
         }
       }
     );
 
-    // THEN check for existing session — with a hard 5s timeout
+    // THEN check for existing session — with a hard 4s timeout
     const sessionTimeout = setTimeout(() => {
-      // If getSession hangs (stale token, network), stop loading anyway
       setIsLoading(false);
-    }, 5000);
+    }, 4000);
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       clearTimeout(sessionTimeout);
@@ -64,11 +94,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     }).catch(() => {
       clearTimeout(sessionTimeout);
-      // Session restore failed — clear stale tokens so future loads are clean
-      try {
-        const storageKey = Object.keys(localStorage).find(k => k.includes('auth-token'));
-        if (storageKey) localStorage.removeItem(storageKey);
-      } catch {}
+      // Session restore failed — force sign out to clear all stale data
+      supabase.auth.signOut().catch(() => {});
       setIsLoading(false);
     });
 
@@ -116,17 +143,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    // Single attempt with a 10s timeout — no more 3x retry loop
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
+      // Force clear any stale session before attempting login
+      try {
+        const keys = Object.keys(localStorage);
+        for (const key of keys) {
+          if (key.includes('auth-token') || key.includes('supabase.auth')) {
+            localStorage.removeItem(key);
+          }
+        }
+      } catch {}
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
-
-      clearTimeout(timeout);
 
       if (error) {
         return { error: error as Error };

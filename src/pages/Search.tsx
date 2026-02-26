@@ -317,62 +317,58 @@ const Search = () => {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.2 }}
             >
-              <h2 className="text-sm font-bold mb-2">{results.length} results</h2>
-              <div className="space-y-0.5">
+              <h2 className="text-sm font-bold mb-3">{results.length} results</h2>
+              <div className="space-y-1">
                 {results.map((song, i) => {
                   const isActive = currentSong?.id === song.id;
                   const offlineUrl = getDownloadedUrl(song.id);
                   return (
                     <motion.div
                       key={song.id}
-                      className="flex items-center gap-2.5 p-2.5 rounded-xl"
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      style={{
-                        background: isActive ? 'hsl(var(--primary) / 0.08)' : 'transparent',
-                      }}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer active:scale-[0.98] transition-all ${
+                        isActive ? 'bg-primary/10' : 'active:bg-white/5'
+                      }`}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.025, duration: 0.25 }}
+                      onClick={() => playSong(song, offlineUrl, results)}
                     >
-                      <button
-                        className="flex-1 flex items-center gap-2.5 text-left min-w-0"
-                        onClick={() => playSong(song, offlineUrl, results)}
-                      >
-                        <div
-                          className="w-11 h-11 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
-                          style={{
-                            background: 'rgba(255,255,255,0.04)',
-                            border: '0.5px solid rgba(255,255,255,0.06)',
-                          }}
-                        >
-                          {song.cover_url ? (
-                            <img src={song.cover_url} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <Music className="w-4 h-4 text-muted-foreground" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`font-semibold text-sm truncate ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                            {song.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
-                        </div>
-                      </button>
-                      
-                      <div className="flex items-center gap-0.5">
+                      {/* Album art */}
+                      <div className={`relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 ${
+                        isActive ? 'shadow-lg shadow-primary/20' : 'shadow-md'
+                      }`}>
+                        {song.cover_url ? (
+                          <img src={song.cover_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                            <Music className="w-4 h-4 text-foreground/30" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Song info */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-semibold text-[13px] truncate ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                          {song.title}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">{song.artist}</p>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1 flex-shrink-0">
                         {isActive && isPlaying ? (
-                          <div className="flex items-end gap-[2px] h-3 mr-1.5">
-                            {[...Array(3)].map((_, j) => (
-                              <motion.div
+                          <div className="flex items-end gap-[2px] h-4 mr-1">
+                            {[0, 1, 2].map((j) => (
+                              <div
                                 key={j}
-                                className="w-[2px] bg-primary rounded-full"
-                                animate={{ height: [4, 10, 4] }}
-                                transition={{ duration: 0.5, repeat: Infinity, delay: j * 0.12 }}
+                                className="w-[3px] bg-primary rounded-full animate-audio-wave"
+                                style={{ animationDelay: `${j * 0.12}s` }}
                               />
                             ))}
                           </div>
                         ) : (
                           <>
-                            <LikeButton songId={song.id} size="sm" />
+                            <LikeButton songId={song.id} size="sm" className="w-8 h-8" />
                             <DownloadButton song={song} size="sm" />
                           </>
                         )}

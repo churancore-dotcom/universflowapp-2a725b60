@@ -1,11 +1,9 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, ListPlus, Eye } from 'lucide-react';
+import { Play, Pause, ListPlus } from 'lucide-react';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { useNavigate } from 'react-router-dom';
-import DownloadButton from './DownloadButton';
-import SaveToDeviceButton from './SaveToDeviceButton';
 import LikeButton from './LikeButton';
 import AddToPlaylistModal from './AddToPlaylistModal';
 import CreatePlaylistModal from './CreatePlaylistModal';
@@ -15,34 +13,17 @@ import { triggerHaptic } from '@/hooks/useHaptics';
 interface SongCardProps {
   song: Song;
   index?: number;
-  sectionSongs?: Song[]; // All songs in the section for queue
+  sectionSongs?: Song[];
 }
-
-// Simple CSS-only audio wave - no framer-motion for performance
-const AudioWave = memo(({ isPlaying }: { isPlaying: boolean }) => (
-  <div className="flex items-end gap-[3px] h-4">
-    {[0, 1, 2].map((i) => (
-      <div
-        key={i}
-        className={`w-[3px] bg-white rounded-full transition-all duration-300 ${
-          isPlaying ? 'animate-audio-wave' : 'h-[5px]'
-        }`}
-        style={{ animationDelay: `${i * 0.12}s` }}
-      />
-    ))}
-  </div>
-));
-
-AudioWave.displayName = 'AudioWave';
 
 const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
   const { currentSong, isPlaying, playSong, togglePlay } = usePlayer();
   const { isDownloaded, getDownloadedUrl } = useDownloads();
   const navigate = useNavigate();
-  
+
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
-  
+
   const isCurrentSong = useMemo(() => currentSong?.id === song.id, [currentSong?.id, song.id]);
   const downloaded = useMemo(() => isDownloaded(song.id), [isDownloaded, song.id]);
 
@@ -60,17 +41,9 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
       togglePlay();
     } else {
       const offlineUrl = getDownloadedUrl(song.id);
-      // Pass the section songs as the queue so next/prev work
       playSong(song, offlineUrl, sectionSongs);
     }
   }, [isCurrentSong, togglePlay, getDownloadedUrl, song, playSong, sectionSongs]);
-
-  // Format play count for display
-  const formatViews = useCallback((count: number) => {
-    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
-    return count.toString();
-  }, []);
 
   const handleAddToPlaylist = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -80,20 +53,17 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
 
   return (
     <div
-      className="group relative flex-shrink-0 w-[150px] snap-start will-change-transform"
+      className="group relative flex-shrink-0 w-[160px] snap-start"
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      {/* Card Container - premium glassmorphism */}
+      {/* Album Art Container */}
       <motion.div
         className="relative aspect-square rounded-2xl overflow-hidden cursor-pointer"
-        style={{
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 0.5px 0 rgba(255,255,255,0.06)',
-        }}
         onClick={handleClick}
-        whileTap={{ scale: 0.95 }}
-        transition={{ type: "spring", stiffness: 400, damping: 20 }}
+        whileTap={{ scale: 0.96 }}
+        transition={{ type: "spring", stiffness: 500, damping: 30 }}
       >
-        {/* Cover Image - Lazy loaded */}
+        {/* Cover Image */}
         {song.cover_url ? (
           <OptimizedImage
             src={song.cover_url}
@@ -102,30 +72,57 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
             eager={index < 4}
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-primary/30 via-purple-500/20 to-accent/30 flex items-center justify-center">
-            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
-              <Play className="w-5 h-5 text-white/60" />
+          <div className="w-full h-full bg-gradient-to-br from-primary/20 via-accent/15 to-primary/10 flex items-center justify-center">
+            <Play className="w-8 h-8 text-foreground/30" />
+          </div>
+        )}
+
+        {/* Bottom gradient for readability */}
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+        {/* Play/Pause overlay on active song */}
+        {isCurrentSong && (
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+            <div
+              className="w-11 h-11 rounded-full flex items-center justify-center"
+              style={{
+                background: 'hsl(var(--primary))',
+                boxShadow: '0 4px 20px hsl(var(--primary) / 0.5)',
+              }}
+            >
+              {isPlaying ? (
+                <div className="flex items-end gap-[3px] h-4">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-[3px] bg-primary-foreground rounded-full animate-audio-wave"
+                      style={{ animationDelay: `${i * 0.12}s` }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <Pause className="w-4.5 h-4.5 text-primary-foreground" />
+              )}
             </div>
           </div>
         )}
-        
-        {/* Subtle gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-80" />
-        
-        {/* Action buttons - 44px min touch targets */}
-        <div className="absolute top-2 right-2 z-20 flex flex-col gap-1.5">
-          <LikeButton songId={song.id} size="sm" className="bg-black/50 backdrop-blur-md rounded-full w-9 h-9" />
-          <DownloadButton song={song} size="sm" />
-          <SaveToDeviceButton song={song} size="sm" />
+
+        {/* Quick actions — top right */}
+        <div className="absolute top-2 right-2 z-20 flex items-center gap-1">
+          <LikeButton
+            songId={song.id}
+            size="sm"
+            className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm"
+          />
           <button
             onClick={handleAddToPlaylist}
-            className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white/80 active:bg-black/70 transition-colors"
+            className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-foreground/80 active:bg-black/60 transition-colors"
           >
-            <ListPlus className="w-4 h-4" />
+            <ListPlus className="w-3.5 h-3.5" />
           </button>
         </div>
-        
-        {/* Downloaded badge */}
+
+        {/* Downloaded indicator */}
         {downloaded && (
           <div className="absolute top-2 left-2 z-10">
             <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shadow-md">
@@ -135,50 +132,32 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
             </div>
           </div>
         )}
-
-        {/* Now Playing indicator */}
-        {isCurrentSong && (
-          <div className="absolute bottom-2 right-2">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg">
-              <AudioWave isPlaying={isPlaying} />
-            </div>
-          </div>
-        )}
       </motion.div>
-      
-      {/* Song Info - larger text for mobile */}
-      <div className="mt-2.5 px-0.5">
-        <p className={`font-semibold text-sm truncate leading-tight ${isCurrentSong ? 'text-primary' : 'text-foreground'}`}>
+
+      {/* Song Meta */}
+      <div className="mt-2 px-0.5">
+        <p className={`font-semibold text-[13px] truncate leading-tight ${isCurrentSong ? 'text-primary' : 'text-foreground'}`}>
           {song.title}
         </p>
-        <div className="flex items-center justify-between mt-1">
-          <button 
-            className="flex items-center gap-1.5 flex-1 min-h-[44px] -my-2"
-            onClick={handleArtistClick}
-          >
-            {song.artist_photo_url && (
-              <img 
-                src={song.artist_photo_url} 
-                alt={song.artist}
-                className="w-4 h-4 rounded-full object-cover"
-                loading="lazy"
-              />
-            )}
-            <p className={`text-xs text-muted-foreground/80 truncate font-medium ${song.artist_id ? 'active:text-primary transition-colors' : ''}`}>
-              {song.artist}
-            </p>
-          </button>
-          {/* Play count / Views */}
-          {(song.play_count ?? 0) > 0 && (
-            <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground/60">
-              <Eye className="w-3 h-3" />
-              <span>{formatViews(song.play_count ?? 0)}</span>
-            </div>
+        <button
+          className="flex items-center gap-1.5 mt-0.5 min-h-[32px]"
+          onClick={handleArtistClick}
+        >
+          {song.artist_photo_url && (
+            <img
+              src={song.artist_photo_url}
+              alt={song.artist}
+              className="w-4 h-4 rounded-full object-cover ring-1 ring-white/10"
+              loading="lazy"
+            />
           )}
-        </div>
+          <p className={`text-xs text-muted-foreground/70 truncate ${song.artist_id ? 'active:text-primary transition-colors' : ''}`}>
+            {song.artist}
+          </p>
+        </button>
       </div>
 
-      {/* Add to Playlist Modal - Lazy mounted */}
+      {/* Modals */}
       {showAddToPlaylist && (
         <AddToPlaylistModal
           isOpen={showAddToPlaylist}
@@ -190,8 +169,6 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
           }}
         />
       )}
-
-      {/* Create Playlist Modal - Lazy mounted */}
       {showCreatePlaylist && (
         <CreatePlaylistModal
           isOpen={showCreatePlaylist}

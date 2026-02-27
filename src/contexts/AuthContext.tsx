@@ -133,15 +133,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+    const maxRetries = 2;
+    let lastError: Error | null = null;
 
-      if (error) {
-        return { error: error as Error };
-      }
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        clearTimeout(timeout);
+
+        if (error) {
+          // If it's a network error and we have retries left, retry
+          if (error.message?.includes('Failed to fetch') && attempt < maxRetries) {
+            lastError = error as Error;
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+            continue;
+          }
+          return { error: error as Error };
+        }
 
       // Do admin check in background — don't block login
       if (data.user) {
@@ -185,10 +200,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       return { error: null, isAdmin: false };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Login failed. Check your connection.';
-      return { error: new Error(message) };
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          lastError = new Error('Request timed out');
+        } else if (err instanceof Error && err.message?.includes('Failed to fetch') && attempt < maxRetries) {
+          lastError = err;
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        } else {
+          const message = err instanceof Error ? err.message : 'Login failed. Check your connection.';
+          return { error: new Error(message) };
+        }
+      }
     }
+    // All retries exhausted
+    return { error: lastError || new Error('Connection failed after multiple attempts. Please check your internet and try again.') };
   };
 
   const signOut = async () => {

@@ -23,6 +23,7 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Block when clearly offline
     if (!navigator.onLine) {
       toast.error('You are offline. Connect to the internet and try again.');
       return;
@@ -55,10 +56,23 @@ const Auth = () => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      const result = await lovable.auth.signInWithOAuth('google', {
+        redirect_uri: window.location.origin,
+      });
+      if (result?.error) {
+        toast.error('Google sign-in failed. Please try again.');
+      }
+    } catch {
+      toast.error('Google sign-in failed. Please try again.');
+    }
+  };
+
   return (
     <FadeTransition>
       <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-5 relative overflow-hidden">
-        {/* Static gradient background */}
+        {/* Background gradient */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -123,7 +137,7 @@ const Auth = () => {
             </motion.p>
           </div>
 
-          {/* Form card */}
+          {/* Form */}
           <motion.form
             onSubmit={handleSubmit}
             className="relative rounded-3xl p-6 space-y-5"
@@ -214,12 +228,7 @@ const Auth = () => {
                 background: 'rgba(255, 255, 255, 0.06)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
               }}
-              onClick={async () => {
-                const result = await lovable.auth.signInWithOAuth('google', {
-                  redirect_uri: window.location.origin,
-                });
-                if (result?.error) toast.error('Failed to sign in with Google');
-              }}
+              onClick={handleGoogleSignIn}
             >
               <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
                 <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -248,6 +257,7 @@ const Auth = () => {
           </motion.form>
         </motion.div>
 
+        {/* Footer */}
         <motion.div
           className="absolute bottom-5 z-10 px-4 py-1.5 rounded-full flex items-center gap-2"
           style={{

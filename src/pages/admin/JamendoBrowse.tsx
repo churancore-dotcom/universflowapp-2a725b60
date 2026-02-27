@@ -64,6 +64,79 @@ const JamendoBrowse = () => {
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, genre: '' });
 
   const [sortBy, setSortBy] = useState<'popularity' | 'latest'>('popularity');
+  const [indianImporting, setIndianImporting] = useState(false);
+  const [indianProgress, setIndianProgress] = useState({ current: 0, total: 0, subGenre: '' });
+
+  const bulkImportIndianAll = async () => {
+    if (bulkImporting || indianImporting) return;
+    setIndianImporting(true);
+    
+    const indianGenres = [
+      { id: 'indian', tags: 'indian+bollywood+hindi', label: 'Indian' },
+      { id: 'bollywood', tags: 'bollywood+filmi', label: 'Bollywood' },
+      { id: 'punjabi', tags: 'punjabi+bhangra', label: 'Punjabi' },
+    ];
+
+    let totalImported = 0;
+    let totalSkipped = 0;
+    const allTracks: JamendoTrack[] = [];
+
+    for (const genre of indianGenres) {
+      setIndianProgress({ current: 0, total: 0, subGenre: genre.label });
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('jamendo-search', {
+          body: { action: 'bulk_genre', genre: genre.tags, limit: 50, offset: 0 },
+        });
+        if (error) continue;
+        
+        const fetched: JamendoTrack[] = data.tracks || [];
+        if (fetched.length === 0) continue;
+        
+        setIndianProgress({ current: 0, total: fetched.length, subGenre: genre.label });
+        
+        const chunkSize = 10;
+        for (let i = 0; i < fetched.length; i += chunkSize) {
+          const chunk = fetched.slice(i, i + chunkSize);
+          const insertData = chunk.map(t => ({
+            title: t.title, artist: t.artist, audio_url: t.audio_url,
+            cover_url: t.cover_url, genre: t.genre || genre.id,
+            mood: t.mood, album: t.album, duration: t.duration, is_visible: true,
+          }));
+          
+          try {
+            const { error: insertError, data: insertedData } = await supabase
+              .from('songs').insert(insertData).select('id');
+            if (!insertError && insertedData) totalImported += insertedData.length;
+            else if (insertError) {
+              for (const track of chunk) {
+                try {
+                  const { error: e } = await supabase.from('songs').insert({
+                    title: track.title, artist: track.artist, audio_url: track.audio_url,
+                    cover_url: track.cover_url, genre: track.genre || genre.id,
+                    mood: track.mood, album: track.album, duration: track.duration, is_visible: true,
+                  });
+                  if (!e) totalImported++; else totalSkipped++;
+                } catch { totalSkipped++; }
+              }
+            }
+          } catch { totalSkipped += chunk.length; }
+          
+          setIndianProgress(prev => ({ ...prev, current: Math.min(i + chunkSize, fetched.length) }));
+        }
+        
+        fetched.forEach(t => setImported(prev => new Set(prev).add(t.jamendo_id)));
+        allTracks.push(...fetched);
+      } catch { /* continue */ }
+    }
+
+    toast.success(
+      `🇮🇳 Indian Music: Imported ${totalImported} songs!` +
+      (totalSkipped > 0 ? ` (${totalSkipped} duplicates skipped)` : '')
+    );
+    setIndianImporting(false);
+    setIndianProgress({ current: 0, total: 0, subGenre: '' });
+  };
 
   const searchTracks = useCallback(async (newSearch = true) => {
     setLoading(true);
@@ -318,6 +391,50 @@ const JamendoBrowse = () => {
             {bulkImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             Import All ({tracks.filter(t => !imported.has(t.jamendo_id)).length})
           </Button>
+        )}
+      </motion.div>
+
+      {/* 🇮🇳 INDIAN MUSIC MEGA IMPORT */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="rounded-2xl p-5 space-y-3"
+        style={{
+          background: 'linear-gradient(135deg, rgba(255,153,51,0.15), rgba(19,136,8,0.12))',
+          border: '1px solid rgba(255,153,51,0.25)',
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">🇮🇳</span>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold">Indian Music — One Click Import</h2>
+            <p className="text-xs text-muted-foreground">Imports ~150 free Indian, Bollywood & Punjabi songs instantly</p>
+          </div>
+          <motion.button
+            onClick={bulkImportIndianAll}
+            disabled={indianImporting || bulkImporting}
+            className="px-6 py-3 rounded-xl font-bold text-white disabled:opacity-50 flex items-center gap-2"
+            style={{ background: 'linear-gradient(135deg, #FF9933, #138808)' }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            {indianImporting ? (
+              <><Loader2 className="w-5 h-5 animate-spin" /> Importing...</>
+            ) : (
+              <><Zap className="w-5 h-5" /> Import Indian Songs</>
+            )}
+          </motion.button>
+        </div>
+
+        {indianImporting && indianProgress.total > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-medium">Importing {indianProgress.subGenre}...</span>
+              <span className="text-muted-foreground">{indianProgress.current}/{indianProgress.total}</span>
+            </div>
+            <Progress value={(indianProgress.current / indianProgress.total) * 100} className="h-2" />
+          </div>
         )}
       </motion.div>
 

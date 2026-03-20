@@ -206,7 +206,7 @@ const DeezerImport = () => {
         audio_url: audioUrl,
         cover_url: coverUrl,
         duration: track.duration || extractData.duration || 0,
-        genre: guessGenre(track, lastQuery),
+        genre: detectedGenre,
         is_visible: true,
         show_in_new_releases: true,
       });

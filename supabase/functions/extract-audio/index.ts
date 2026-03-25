@@ -99,7 +99,7 @@ function isPlaylistUrl(url: string): boolean {
 // Try Cobalt API instance
 async function tryCobaltInstance(apiUrl: string, videoId: string): Promise<ExtractionResult | null> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), 7000);
 
   try {
     const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -164,7 +164,7 @@ async function tryCobaltInstance(apiUrl: string, videoId: string): Promise<Extra
 // Try a Piped instance
 async function tryPipedInstance(apiUrl: string, videoId: string): Promise<ExtractionResult | null> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const timeoutId = setTimeout(() => controller.abort(), 7000);
 
   try {
     const response = await fetch(
@@ -232,7 +232,7 @@ async function tryPipedInstance(apiUrl: string, videoId: string): Promise<Extrac
 // Try an Invidious instance
 async function tryInvidiousInstance(apiUrl: string, videoId: string): Promise<ExtractionResult | null> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const timeoutId = setTimeout(() => controller.abort(), 7000);
 
   try {
     const response = await fetch(
@@ -320,9 +320,9 @@ async function extractFromYouTube(videoId: string): Promise<ExtractionResult> {
   console.log(`\n=== Extracting YouTube video: ${videoId} ===`);
   
   // Shuffle instances for load distribution
-  const cobaltInstances = [...COBALT_INSTANCES].sort(() => Math.random() - 0.5);
-  const pipedInstances = [...PIPED_INSTANCES].sort(() => Math.random() - 0.5);
-  const invidiousInstances = [...INVIDIOUS_INSTANCES].sort(() => Math.random() - 0.5);
+  const cobaltInstances = [...COBALT_INSTANCES].sort(() => Math.random() - 0.5).slice(0, 6);
+  const pipedInstances = [...PIPED_INSTANCES].sort(() => Math.random() - 0.5).slice(0, 6);
+  const invidiousInstances = [...INVIDIOUS_INSTANCES].sort(() => Math.random() - 0.5).slice(0, 6);
 
   // Try Cobalt first (most reliable, batches of 3)
   console.log(`\nTrying ${cobaltInstances.length} Cobalt instances...`);
@@ -351,11 +351,11 @@ async function extractFromYouTube(videoId: string): Promise<ExtractionResult> {
     }
   }
   
-  // Try Piped instances (batches of 5)
+  // Try Piped instances (batches of 3)
   console.log(`\nCobalt failed. Trying ${pipedInstances.length} Piped instances...`);
-  for (let i = 0; i < pipedInstances.length; i += 5) {
-    const batch = pipedInstances.slice(i, i + 5);
-    console.log(`Piped Batch ${Math.floor(i/5) + 1}:`);
+  for (let i = 0; i < pipedInstances.length; i += 3) {
+    const batch = pipedInstances.slice(i, i + 3);
+    console.log(`Piped Batch ${Math.floor(i/3) + 1}:`);
     
     const results = await Promise.all(
       batch.map(instance => tryPipedInstance(instance, videoId))
@@ -367,11 +367,11 @@ async function extractFromYouTube(videoId: string): Promise<ExtractionResult> {
     }
   }
   
-  // Fallback to Invidious instances (batches of 5)
+  // Fallback to Invidious instances (batches of 3)
   console.log(`\nPiped failed. Trying ${invidiousInstances.length} Invidious instances...`);
-  for (let i = 0; i < invidiousInstances.length; i += 5) {
-    const batch = invidiousInstances.slice(i, i + 5);
-    console.log(`Invidious Batch ${Math.floor(i/5) + 1}:`);
+  for (let i = 0; i < invidiousInstances.length; i += 3) {
+    const batch = invidiousInstances.slice(i, i + 3);
+    console.log(`Invidious Batch ${Math.floor(i/3) + 1}:`);
     
     const results = await Promise.all(
       batch.map(instance => tryInvidiousInstance(instance, videoId))

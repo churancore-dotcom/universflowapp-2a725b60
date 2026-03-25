@@ -103,7 +103,7 @@ const DeezerImport = () => {
     }
   }, []);
 
-  const importTrack = useCallback(async (track: DeezerTrack) => {
+  const importTrack = useCallback(async (track: DeezerTrack): Promise<boolean> => {
     setImportStates(prev => ({ ...prev, [track.deezer_id]: { status: 'extracting' } }));
 
     try {
@@ -201,7 +201,7 @@ const DeezerImport = () => {
       if (existing && existing.length > 0) {
         setImportStates(prev => ({ ...prev, [track.deezer_id]: { status: 'done' } }));
         toast.info(`"${track.title}" already exists`);
-        return;
+        return true;
       }
 
       const { error: insertError } = await supabase.from('songs').insert({
@@ -220,6 +220,7 @@ const DeezerImport = () => {
 
       setImportStates(prev => ({ ...prev, [track.deezer_id]: { status: 'done' } }));
       toast.success(`Imported "${track.title}" by ${track.artist}`);
+      return true;
 
     } catch (err: any) {
       console.error('Import error:', err);
@@ -228,6 +229,7 @@ const DeezerImport = () => {
         [track.deezer_id]: { status: 'error', error: err.message || 'Import failed' },
       }));
       toast.error(`Failed: ${track.title} — ${err.message}`);
+      return false;
     }
   }, [lastQuery]);
 
@@ -247,10 +249,10 @@ const DeezerImport = () => {
     let failed = 0;
 
     for (const track of unimported) {
-      try {
-        await importTrack(track);
+      const ok = await importTrack(track);
+      if (ok) {
         success++;
-      } catch {
+      } else {
         failed++;
       }
       // Small delay to avoid rate limits

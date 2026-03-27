@@ -154,16 +154,30 @@ const DeezerImport = () => {
       setImportStates(prev => ({ ...prev, [track.deezer_id]: { status: 'importing' } }));
 
       // Step 2: Extract audio using existing edge function
-      const { data: session } = await supabase.auth.getSession();
-      const token = session?.session?.access_token;
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        throw new Error('Could not verify session. Please sign in again.');
+      }
+
+      if (!session?.access_token) {
+        throw new Error('Please sign in again to import songs.');
+      }
 
       const { data: extractData, error: extractError } = await supabase.functions.invoke('extract-audio', {
         body: { url: `https://www.youtube.com/watch?v=${videoId}` },
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
       if (extractError || !extractData?.success) {
-        throw new Error(extractData?.error || extractError?.message || 'Audio extraction failed');
+        const rawError = extractData?.error || extractError?.message || 'Audio extraction failed';
+        if (/authentication required|invalid authentication|401/i.test(rawError)) {
+          throw new Error('Session expired. Please log in again and retry.');
+        }
+        throw new Error(rawError);
       }
 
       audioUrl = extractData.audioUrl;

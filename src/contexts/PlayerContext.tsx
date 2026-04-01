@@ -512,7 +512,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         nextAudioRef.current = temp;
         setAudioElement(audioRef.current);
 
-        // Rebind audio engine to new element after crossfade swap
+        // Rebind audio engine to new element BEFORE it starts playing
         if (audioRef.current) {
           audioEngine.bind(audioRef.current).catch(() => {});
         }

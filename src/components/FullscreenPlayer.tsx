@@ -387,9 +387,6 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 </button>
               </div>
 
-              {/* Song Suggestions */}
-              <SongSuggestions allSongs={allSongs} />
-
               {/* Song Reactions */}
               <SongReactions songId={currentSong.id} songTitle={currentSong.title} />
             </div>

@@ -27,6 +27,15 @@ interface Preset {
   bassBoost: number;
 }
 
+// Singleton audio graph - survives re-renders and re-mounts
+const eqState = {
+  ctx: null as AudioContext | null,
+  source: null as MediaElementAudioSourceNode | null,
+  filters: [] as BiquadFilterNode[],
+  gainNode: null as GainNode | null,
+  connectedElement: null as HTMLAudioElement | null,
+};
+
 const presets: Preset[] = [
   { id: 'flat', name: 'Flat', icon: Music2, bands: [0, 0, 0, 0, 0, 0], bassBoost: 0 },
   { id: 'bass-boost', name: 'Bass Boost', icon: Zap, bands: [6, 5, 3, 0, -1, -2], bassBoost: 50 },
@@ -47,13 +56,7 @@ const defaultBands: EQBand[] = [
   { frequency: 20000, gain: 0, label: '20kHz' },
 ];
 
-interface FrequencySliderProps {
-  band: EQBand;
-  index: number;
-  onChange: (index: number, value: number) => void;
-}
-
-function FrequencySliderComponent({ band, index, onChange }: FrequencySliderProps) {
+function FrequencySliderComponent({ band, index, onChange }: { band: EQBand; index: number; onChange: (i: number, v: number) => void }) {
   return (
     <div className="flex flex-col items-center gap-2">
       <span className="text-[10px] text-muted-foreground font-mono">{band.gain > 0 ? '+' : ''}{band.gain}dB</span>
@@ -83,78 +86,114 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const [activePreset, setActivePreset] = useState<string>('flat');
   const [isConnected, setIsConnected] = useState(false);
 
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
-  const eqFiltersRef = useRef<BiquadFilterNode[]>([]);
-  const gainNodeRef = useRef<GainNode | null>(null);
-
-  // Initialize audio context and connect to audio element
+  // Connect to audio element using singleton pattern
   useEffect(() => {
-    if (!audioElement || isConnected) return;
+    if (!audioElement) {
+      setIsConnected(false);
+      return;
+    }
+
+    // Already connected to this element
+    if (eqState.connectedElement === audioElement && eqState.ctx) {
+      setIsConnected(true);
+      return;
+    }
 
     try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) {
-        console.warn('AudioContext not supported');
-        return;
+      // Reuse existing context or create new one
+      if (!eqState.ctx || eqState.ctx.state === 'closed') {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContextClass) return;
+        eqState.ctx = new AudioContextClass();
       }
 
-      const ctx = new AudioContextClass();
-      audioContextRef.current = ctx;
+      const ctx = eqState.ctx;
 
-      const source = ctx.createMediaElementSource(audioElement);
-      sourceNodeRef.current = source;
+      // Only create source if element changed
+      if (eqState.connectedElement !== audioElement) {
+        // Disconnect old chain
+        try {
+          eqState.source?.disconnect();
+          eqState.filters.forEach(f => f.disconnect());
+          eqState.gainNode?.disconnect();
+        } catch {}
 
-      const filters = defaultBands.map((band) => {
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'peaking';
-        filter.frequency.value = band.frequency;
-        filter.Q.value = 1;
-        filter.gain.value = band.gain;
-        return filter;
-      });
-      eqFiltersRef.current = filters;
+        try {
+          eqState.source = ctx.createMediaElementSource(audioElement);
+        } catch {
+          // Already has a source - element was connected before
+          // This means we can't reconnect, just update filters
+          setIsConnected(true);
+          eqState.connectedElement = audioElement;
+          return;
+        }
 
-      const gainNode = ctx.createGain();
-      gainNode.gain.value = 1;
-      gainNodeRef.current = gainNode;
+        // Create filter chain
+        const filters = defaultBands.map((band) => {
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'peaking';
+          filter.frequency.value = band.frequency;
+          filter.Q.value = 1;
+          filter.gain.value = 0;
+          return filter;
+        });
 
-      source.connect(filters[0]);
-      for (let i = 0; i < filters.length - 1; i++) {
-        filters[i].connect(filters[i + 1]);
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = 1;
+
+        // Wire: source -> filters -> gain -> destination
+        eqState.source.connect(filters[0]);
+        for (let i = 0; i < filters.length - 1; i++) {
+          filters[i].connect(filters[i + 1]);
+        }
+        filters[filters.length - 1].connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        eqState.filters = filters;
+        eqState.gainNode = gainNode;
+        eqState.connectedElement = audioElement;
       }
-      filters[filters.length - 1].connect(gainNode);
-      gainNode.connect(ctx.destination);
+
+      // Resume if suspended
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
 
       setIsConnected(true);
     } catch (error) {
-      console.error('Failed to initialize equalizer:', error);
+      console.error('EQ init error:', error);
     }
+  }, [audioElement]);
 
-    return () => {};
-  }, [audioElement, isConnected]);
-
-  // Apply EQ changes
+  // Apply EQ band changes to filters
   useEffect(() => {
-    if (!eqFiltersRef.current.length) return;
-    bands.forEach((band, index) => {
-      if (eqFiltersRef.current[index]) {
-        eqFiltersRef.current[index].gain.value = band.gain;
+    if (!eqState.filters.length) return;
+    bands.forEach((band, i) => {
+      if (eqState.filters[i]) {
+        eqState.filters[i].gain.value = band.gain;
       }
     });
   }, [bands]);
 
-  // Apply bass boost
+  // Apply bass boost on top of band values
   useEffect(() => {
-    if (!eqFiltersRef.current.length) return;
-    const boostAmount = bassBoost / 10;
-    if (eqFiltersRef.current[0]) {
-      eqFiltersRef.current[0].gain.value = bands[0].gain + boostAmount;
+    if (!eqState.filters.length) return;
+    const boost = bassBoost / 10;
+    if (eqState.filters[0]) {
+      eqState.filters[0].gain.value = bands[0].gain + boost;
     }
-    if (eqFiltersRef.current[1]) {
-      eqFiltersRef.current[1].gain.value = bands[1].gain + (boostAmount * 0.5);
+    if (eqState.filters[1]) {
+      eqState.filters[1].gain.value = bands[1].gain + (boost * 0.5);
     }
   }, [bassBoost, bands]);
+
+  // Keep context alive when audio plays
+  useEffect(() => {
+    if (!eqState.ctx || eqState.ctx.state !== 'suspended') return;
+    const resume = () => { eqState.ctx?.resume(); };
+    audioElement?.addEventListener('play', resume);
+    return () => { audioElement?.removeEventListener('play', resume); };
+  }, [audioElement]);
 
   const handleBandChange = useCallback((index: number, value: number) => {
     setBands(prev => prev.map((b, i) => i === index ? { ...b, gain: value } : b));

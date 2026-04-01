@@ -255,7 +255,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   // Play a song at specific index
-  const playSongAtIndex = useCallback((index: number, songQueue: Song[]) => {
+  const playSongAtIndex = useCallback(async (index: number, songQueue: Song[]) => {
     const song = songQueue[index];
     if (!song || !audioRef.current) return;
 

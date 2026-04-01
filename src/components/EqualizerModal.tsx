@@ -29,14 +29,14 @@ interface Preset {
 }
 
 const presets: Preset[] = [
-  { name: 'Flat', icon: <Music2 className="w-4 h-4" />, bands: [0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0, reverb: 0, spatialAudio: false },
-  { name: 'Bass Boost', icon: <Zap className="w-4 h-4" />, bands: [8, 6, 4, 1, 0, -1, -2, -2], bassBoost: 60, reverb: 0, spatialAudio: false },
-  { name: 'Treble Boost', icon: <Sparkles className="w-4 h-4" />, bands: [-2, -1, 0, 1, 3, 5, 6, 7], bassBoost: 0, reverb: 0, spatialAudio: false },
-  { name: 'Vocal', icon: <Volume2 className="w-4 h-4" />, bands: [-3, -1, 1, 4, 5, 3, 1, 0], bassBoost: 0, reverb: 25, spatialAudio: false },
-  { name: '8D Audio', icon: <Globe className="w-4 h-4" />, bands: [2, 1, 0, -1, 0, 1, 2, 3], bassBoost: 15, reverb: 55, spatialAudio: true },
-  { name: 'Phonk', icon: <Radio className="w-4 h-4" />, bands: [7, 5, 3, 0, -2, 1, 3, 4], bassBoost: 70, reverb: 15, spatialAudio: false },
-  { name: 'Deep Bass', icon: <Headphones className="w-4 h-4" />, bands: [10, 8, 5, 2, 0, -1, -2, -3], bassBoost: 80, reverb: 10, spatialAudio: false },
-  { name: 'Concert', icon: <Sparkles className="w-4 h-4" />, bands: [3, 1, 0, -1, 0, 2, 4, 5], bassBoost: 10, reverb: 60, spatialAudio: true },
+  { name: 'Flat', icon: <Music2 className="w-4 h-4" />, bands: [0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0, reverb: 0 },
+  { name: 'Bass Boost', icon: <Zap className="w-4 h-4" />, bands: [8, 6, 4, 1, 0, -1, -2, -2], bassBoost: 60, reverb: 0 },
+  { name: 'Deep Bass', icon: <Headphones className="w-4 h-4" />, bands: [10, 8, 5, 2, 0, -1, -2, -3], bassBoost: 80, reverb: 10 },
+  { name: 'Treble', icon: <Sparkles className="w-4 h-4" />, bands: [-2, -1, 0, 1, 3, 5, 6, 7], bassBoost: 0, reverb: 0 },
+  { name: 'Vocal', icon: <Volume2 className="w-4 h-4" />, bands: [-3, -1, 1, 4, 5, 3, 1, 0], bassBoost: 0, reverb: 25 },
+  { name: 'Phonk', icon: <Radio className="w-4 h-4" />, bands: [7, 5, 3, 0, -2, 1, 3, 4], bassBoost: 70, reverb: 15 },
+  { name: 'Rock', icon: <Sparkles className="w-4 h-4" />, bands: [5, 3, -1, -2, 0, 2, 4, 5], bassBoost: 30, reverb: 10 },
+  { name: 'Pop', icon: <Music2 className="w-4 h-4" />, bands: [-1, 2, 4, 5, 3, 0, -1, -1], bassBoost: 10, reverb: 15 },
 ];
 
 const defaultBands: EQBand[] = [

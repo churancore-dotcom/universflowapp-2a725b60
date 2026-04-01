@@ -144,7 +144,8 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     setReverb(0);
     setPlaybackSpeed(1);
     setActivePreset('Flat');
-    audioEngine.set8D(false);
+    // Clean up any lingering 8D state
+    try { audioEngine.set8D(false); } catch {}
     if (audioElement) audioElement.playbackRate = 1;
     toast.success('Equalizer reset');
   }, [audioElement]);

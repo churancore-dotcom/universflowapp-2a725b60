@@ -33,6 +33,7 @@ const Support = lazy(() => import("./pages/Support"));
 import OfflinePlayerShell from "./components/OfflinePlayerShell";
 const Offline = lazy(() => import("./pages/Offline"));
 const WidgetPreview = lazy(() => import("./pages/WidgetPreview"));
+const RequestSong = lazy(() => import("./pages/RequestSong"));
 
 const DownloadQueuePanel = lazy(() => import("./components/DownloadQueuePanel"));
 const PrerollAd = lazy(() => import("./components/ads/PrerollAd"));
@@ -71,6 +72,7 @@ const ABTesting = lazy(() => import("./pages/admin/ABTesting"));
 const SecurityCenter = lazy(() => import("./pages/admin/SecurityCenter"));
 const JamendoBrowse = lazy(() => import("./pages/admin/JamendoBrowse"));
 const DeezerImport = lazy(() => import("./pages/admin/DeezerImport"));
+const SongRequests = lazy(() => import("./pages/admin/SongRequests"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -128,6 +130,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
           <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
           <Route path="/offline" element={<ProtectedRoute><Offline /></ProtectedRoute>} />
           <Route path="/widgets" element={<ProtectedRoute><WidgetPreview /></ProtectedRoute>} />
+          <Route path="/request-song" element={<ProtectedRoute><RequestSong /></ProtectedRoute>} />
           
           <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
             <Route index element={<AdminDashboard />} />
@@ -159,6 +162,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
             <Route path="security" element={<SecurityCenter />} />
             <Route path="jamendo" element={<JamendoBrowse />} />
             <Route path="deezer" element={<DeezerImport />} />
+            <Route path="song-requests" element={<SongRequests />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

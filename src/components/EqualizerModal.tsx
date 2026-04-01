@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Radio } from 'lucide-react';
@@ -10,8 +11,6 @@ import { audioEngine } from '@/lib/equalizer';
 interface EqualizerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  audioContext?: AudioContext | null;
-  sourceNode?: MediaElementAudioSourceNode | null;
 }
 
 interface EQBand {
@@ -81,7 +80,6 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   });
   const [bassBoost, setBassBoost] = useState(() => { try { return Number(localStorage.getItem('eq_bass')) || 0; } catch { return 0; } });
   const [reverb, setReverb] = useState(() => { try { return Number(localStorage.getItem('eq_reverb')) || 0; } catch { return 0; } });
-  // 8D removed — was unreliable
   const [playbackSpeed, setPlaybackSpeed] = useState(() => { try { return Number(localStorage.getItem('eq_speed')) || 1; } catch { return 1; } });
   const [activePreset, setActivePreset] = useState<string | null>(() => { try { return localStorage.getItem('eq_preset') || 'Flat'; } catch { return 'Flat'; } });
   const [connected, setConnected] = useState(audioEngine.connected);
@@ -97,29 +95,35 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     } catch {}
   }, [bands, bassBoost, reverb, playbackSpeed, activePreset]);
 
-  // Bind engine when modal opens
+  // CRITICAL FIX: Only resume context when modal opens, never re-bind.
+  // The audio engine is already bound in PlayerContext when playback starts.
+  // Re-binding here was causing audio to stop.
   useEffect(() => {
-    if (!audioElement || !isOpen) return;
-    let cancelled = false;
+    if (!isOpen) return;
+    
+    // Just resume the context (for user gesture requirement) and check connection
     (async () => {
-      // Resume context first (needed for user gesture requirement)
       await audioEngine.resume();
-      const ok = await audioEngine.bind(audioElement);
-      if (cancelled) return;
-      setConnected(ok);
-      if (ok) {
+      
+      // If not connected yet and we have an audio element, try binding
+      // This handles the case where EQ is opened before any song plays
+      if (!audioEngine.connected && audioElement) {
+        const ok = await audioEngine.bind(audioElement);
+        setConnected(ok);
+      } else {
+        setConnected(audioEngine.connected);
+      }
+      
+      // Always push current settings to the engine
+      if (audioEngine.connected) {
         audioEngine.setBands(bands.map(b => b.gain));
         audioEngine.setBassBoost(bassBoost, bands.map(b => b.gain));
         audioEngine.setReverb(reverb);
       }
     })();
-    return () => { cancelled = true; };
-  }, [audioElement, isOpen]);
+  }, [isOpen, audioElement]);
 
-  // Resume on open
-  useEffect(() => { if (isOpen) audioEngine.resume(); }, [isOpen]);
-
-  // Push changes to engine
+  // Push changes to engine - only if connected
   useEffect(() => { if (connected) audioEngine.setBands(bands.map(b => b.gain)); }, [bands, connected]);
   useEffect(() => { if (connected) audioEngine.setBassBoost(bassBoost, bands.map(b => b.gain)); }, [bassBoost, bands, connected]);
   useEffect(() => { if (connected) audioEngine.setReverb(reverb); }, [reverb, connected]);
@@ -144,8 +148,6 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     setReverb(0);
     setPlaybackSpeed(1);
     setActivePreset('Flat');
-    // Clean up any lingering 8D state
-    try { audioEngine.set8D(false); } catch {}
     if (audioElement) audioElement.playbackRate = 1;
     toast.success('Equalizer reset');
   }, [audioElement]);
@@ -279,7 +281,6 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                   <span>0.5x</span><span>1x</span><span>1.5x</span><span>2x</span>
                 </div>
               </div>
-
             </div>
           </div>
         </motion.div>

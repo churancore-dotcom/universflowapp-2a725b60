@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,7 +18,7 @@ import LockScreenPlayer from '@/components/LockScreenPlayer';
 import EqualizerModal from '@/components/EqualizerModal';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
-import { Music, Lock, ListMusic, Sliders, Headphones } from 'lucide-react';
+import { Music, Lock, ListMusic, Sliders, Headphones, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import appLogo from '@/assets/app-logo.png';
@@ -53,6 +54,7 @@ const LoadingSkeleton = memo(() => (
 LoadingSkeleton.displayName = 'LoadingSkeleton';
 
 const Home = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { currentSong } = usePlayer();
   const { cachedSongs, updateCache } = useSongCache();
@@ -194,6 +196,7 @@ const Home = () => {
             
             <div className="flex items-center gap-1.5">
               {[
+                { icon: Send, action: () => navigate('/request-song') },
                 { icon: ListMusic, action: () => setShowQueue(true) },
                 { icon: Sliders, action: () => setShowEqualizer(true) },
                 { icon: Lock, action: () => setShowLockScreen(true) },
@@ -321,7 +324,7 @@ const Home = () => {
         {showLockScreen && <LockScreenPlayer isOpen={showLockScreen} onClose={() => setShowLockScreen(false)} />}
         {showSleepTimer && <SleepTimerModal isOpen={showSleepTimer} onClose={() => setShowSleepTimer(false)} />}
         {showQueue && <QueueDrawer isOpen={showQueue} onClose={() => setShowQueue(false)} />}
-        {showEqualizer && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} audioContext={null} sourceNode={null} />}
+        {showEqualizer && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} />}
         <OfflineIndicator />
       </div>
     </TabTransition>

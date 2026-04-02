@@ -321,7 +321,7 @@ const Home = () => {
         {showLockScreen && <LockScreenPlayer isOpen={showLockScreen} onClose={() => setShowLockScreen(false)} />}
         {showSleepTimer && <SleepTimerModal isOpen={showSleepTimer} onClose={() => setShowSleepTimer(false)} />}
         {showQueue && <QueueDrawer isOpen={showQueue} onClose={() => setShowQueue(false)} />}
-        {showEqualizer && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} audioContext={null} sourceNode={null} />}
+        {showEqualizer && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} />}
         <OfflineIndicator />
       </div>
     </TabTransition>

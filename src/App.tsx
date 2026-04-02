@@ -63,7 +63,7 @@ const RevenueAnalytics = lazy(() => import("./pages/admin/RevenueAnalytics"));
 const UserEngagement = lazy(() => import("./pages/admin/UserEngagement"));
 const ABTesting = lazy(() => import("./pages/admin/ABTesting"));
 const SecurityCenter = lazy(() => import("./pages/admin/SecurityCenter"));
-const JamendoBrowse = lazy(() => import("./pages/admin/JamendoBrowse"));
+
 const AdminSongRequests = lazy(() => import("./pages/admin/SongRequests"));
 
 const queryClient = new QueryClient({
@@ -152,7 +152,7 @@ const AnimatedRoutes = () => {
             <Route path="engagement" element={<UserEngagement />} />
             <Route path="ab-testing" element={<ABTesting />} />
             <Route path="security" element={<SecurityCenter />} />
-            <Route path="jamendo" element={<JamendoBrowse />} />
+            
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

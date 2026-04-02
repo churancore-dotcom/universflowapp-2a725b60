@@ -9,7 +9,7 @@ import SocialShareModal from './SocialShareModal';
 import AddToPlaylistModal from './AddToPlaylistModal';
 import CreatePlaylistModal from './CreatePlaylistModal';
 import SongReactions from './SongReactions';
-import SongSuggestions from './SongSuggestions';
+import DownloadButton from './DownloadButton';
 import { supabase } from '@/integrations/supabase/client';
 import type { Song } from '@/contexts/PlayerContext';
 
@@ -85,15 +85,8 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   const [direction, setDirection] = useState(0);
   const prevSongIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
-  const [allSongs, setAllSongs] = useState<Song[]>([]);
 
-  // Fetch songs for suggestions
-  useEffect(() => {
-    if (!isExpanded) return;
-    supabase.from('songs').select('id, title, artist, album, cover_url, audio_url, duration, artist_id, play_count').eq('is_visible', true).limit(100).then(({ data }) => {
-      if (data) setAllSongs(data.map(s => ({ ...s, cover_url: s.cover_url ?? undefined, album: s.album ?? undefined, duration: s.duration ?? undefined, artist_id: s.artist_id ?? undefined, play_count: s.play_count ?? 0, audio_url: s.audio_url })));
-    });
-  }, [isExpanded]);
+
 
   // Track song changes for animation direction
   useEffect(() => {
@@ -241,8 +234,6 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 </AnimatePresence>
               </div>
 
-              {/* Song Suggestions - right below album art */}
-              <SongSuggestions allSongs={allSongs} />
             </div>
 
             {/* Controls Section */}
@@ -276,6 +267,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   </motion.div>
                 </AnimatePresence>
                 <div className="flex items-center gap-1 flex-shrink-0">
+                  <DownloadButton song={currentSong} size="sm" />
                   <LikeButton songId={currentSong.id} size="sm" />
                 </div>
               </div>

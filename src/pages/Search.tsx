@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search as SearchIcon, Music, X, Tag, Sparkles, Headphones, Globe } from 'lucide-react';
+import { Search as SearchIcon, Music, X, Tag, Sparkles, Headphones, Globe, Youtube } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
@@ -13,6 +13,8 @@ import DownloadButton from '@/components/DownloadButton';
 import { TabTransition } from '@/components/PageTransition';
 import { Input } from '@/components/ui/input';
 import { SearchSkeleton } from '@/components/PageSkeletons';
+import { searchYTMusic, resolveStreamUrl, YTMusicResult } from '@/lib/ytMusicSearch';
+import { toast } from 'sonner';
 
 const AUDIUS_BASE = 'https://audius-discovery-1.the-standard.io/v1';
 const APP_NAME = 'univers_flow_official';
@@ -33,24 +35,25 @@ const moods = [
   { name: 'Focus', color: 'from-violet-500 to-purple-600', icon: '🎯' },
 ];
 
-type SearchSource = 'all' | 'library' | 'audius';
+type SearchSource = 'all' | 'library' | 'audius' | 'ytmusic';
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Song[]>([]);
   const [audiusResults, setAudiusResults] = useState<Song[]>([]);
+  const [ytResults, setYtResults] = useState<YTMusicResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [activeFilter, setActiveFilter] = useState<{ type: 'genre' | 'mood'; value: string } | null>(null);
   const [source, setSource] = useState<SearchSource>('all');
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
   const { playSong, currentSong, isPlaying } = usePlayer();
   const { getDownloadedUrl } = useDownloads();
 
   useEffect(() => {
     const genre = searchParams.get('genre');
     const mood = searchParams.get('mood');
-    
     if (genre) {
       setActiveFilter({ type: 'genre', value: genre });
       searchByGenre(genre);
@@ -67,11 +70,13 @@ const Search = () => {
       const timer = setTimeout(() => {
         searchSongs();
         searchAudius();
-      }, 300);
+        searchYT();
+      }, 350);
       return () => clearTimeout(timer);
     } else if (!activeFilter) {
       setResults([]);
       setAudiusResults([]);
+      setYtResults([]);
     }
   }, [query]);
 
@@ -84,14 +89,10 @@ const Search = () => {
       .eq('is_visible', true)
       .or(`title.ilike.%${query}%,artist.ilike.%${query}%,album.ilike.%${query}%`)
       .limit(15);
-
     if (data) {
       setResults(data.map(s => ({
-        id: s.id,
-        title: s.title,
-        artist: s.artist,
-        album: s.album || undefined,
-        cover_url: s.cover_url || undefined,
+        id: s.id, title: s.title, artist: s.artist,
+        album: s.album || undefined, cover_url: s.cover_url || undefined,
         audio_url: s.audio_url,
         artist_id: (s.artists as any)?.id || s.artist_id || undefined,
         artist_photo_url: (s.artists as any)?.photo_url || undefined,
@@ -104,7 +105,7 @@ const Search = () => {
     try {
       const res = await fetch(
         `${AUDIUS_BASE}/tracks/search?query=${encodeURIComponent(query)}&app_name=${APP_NAME}`,
-        { headers: { 'Accept': 'application/json' } }
+        { headers: { Accept: 'application/json' } }
       );
       if (!res.ok) return;
       const json = await res.json();
@@ -122,25 +123,52 @@ const Search = () => {
     }
   };
 
-  const searchByGenre = async (genre: string) => {
-    setQuery('');
-    setActiveFilter({ type: 'genre', value: genre });
-    setSearching(true);
-    const { data } = await supabase
-      .from('songs')
-      .select('*, artists(id, name, photo_url)')
-      .eq('is_visible', true)
-      .ilike('genre', `%${genre}%`)
-      .limit(20);
+  const searchYT = async () => {
+    try {
+      const res = await searchYTMusic(query);
+      setYtResults(res);
+    } catch (err) {
+      console.error('YT Music search failed:', err);
+    }
+  };
 
+  const handlePlayYT = useCallback(async (track: YTMusicResult) => {
+    setResolvingId(track.id);
+    try {
+      const streamUrl = await resolveStreamUrl(track.videoId);
+      if (!streamUrl) {
+        toast.error('Could not resolve audio stream. Try another track.');
+        return;
+      }
+      const song: Song = {
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        cover_url: track.cover_url,
+        audio_url: streamUrl,
+        duration: track.duration,
+      };
+      // Build queue from all YT results
+      const allSongs: Song[] = ytResults.map(r => ({
+        id: r.id, title: r.title, artist: r.artist,
+        cover_url: r.cover_url, audio_url: '', duration: r.duration,
+      }));
+      playSong(song, undefined, allSongs);
+    } catch {
+      toast.error('Playback failed');
+    } finally {
+      setResolvingId(null);
+    }
+  }, [ytResults, playSong]);
+
+  const searchByGenre = async (genre: string) => {
+    setQuery(''); setActiveFilter({ type: 'genre', value: genre }); setSearching(true);
+    const { data } = await supabase.from('songs').select('*, artists(id, name, photo_url)')
+      .eq('is_visible', true).ilike('genre', `%${genre}%`).limit(20);
     if (data) {
       setResults(data.map(s => ({
-        id: s.id,
-        title: s.title,
-        artist: s.artist,
-        album: s.album || undefined,
-        cover_url: s.cover_url || undefined,
-        audio_url: s.audio_url,
+        id: s.id, title: s.title, artist: s.artist, album: s.album || undefined,
+        cover_url: s.cover_url || undefined, audio_url: s.audio_url,
         artist_id: (s.artists as any)?.id || s.artist_id || undefined,
         artist_photo_url: (s.artists as any)?.photo_url || undefined,
       })));
@@ -149,24 +177,13 @@ const Search = () => {
   };
 
   const searchByMood = async (mood: string) => {
-    setQuery('');
-    setActiveFilter({ type: 'mood', value: mood });
-    setSearching(true);
-    const { data } = await supabase
-      .from('songs')
-      .select('*, artists(id, name, photo_url)')
-      .eq('is_visible', true)
-      .ilike('mood', `%${mood}%`)
-      .limit(20);
-
+    setQuery(''); setActiveFilter({ type: 'mood', value: mood }); setSearching(true);
+    const { data } = await supabase.from('songs').select('*, artists(id, name, photo_url)')
+      .eq('is_visible', true).ilike('mood', `%${mood}%`).limit(20);
     if (data) {
       setResults(data.map(s => ({
-        id: s.id,
-        title: s.title,
-        artist: s.artist,
-        album: s.album || undefined,
-        cover_url: s.cover_url || undefined,
-        audio_url: s.audio_url,
+        id: s.id, title: s.title, artist: s.artist, album: s.album || undefined,
+        cover_url: s.cover_url || undefined, audio_url: s.audio_url,
         artist_id: (s.artists as any)?.id || s.artist_id || undefined,
         artist_photo_url: (s.artists as any)?.photo_url || undefined,
       })));
@@ -175,15 +192,14 @@ const Search = () => {
   };
 
   const clearFilter = () => {
-    setActiveFilter(null);
-    setQuery('');
-    setResults([]);
-    setAudiusResults([]);
+    setActiveFilter(null); setQuery('');
+    setResults([]); setAudiusResults([]); setYtResults([]);
   };
 
-  // Combine results based on active source tab
-  const displayResults = source === 'audius' ? audiusResults 
-    : source === 'library' ? results 
+  // Combine results based on source
+  const libraryAndAudius: Song[] = source === 'audius' ? audiusResults
+    : source === 'library' ? results
+    : source === 'ytmusic' ? []
     : [...results, ...audiusResults];
 
   const hasQuery = query.length > 1 || activeFilter;
@@ -191,86 +207,66 @@ const Search = () => {
   return (
     <TabTransition>
       <div className="h-[100dvh] bg-background flex flex-col overflow-hidden relative">
-        {/* Ambient background */}
         <div className="absolute inset-0 pointer-events-none">
-          <div
-            className="absolute inset-0"
-            style={{
-              background: `
-                radial-gradient(ellipse 80% 50% at 50% 0%, hsl(260 100% 60% / 0.05), transparent),
-                radial-gradient(ellipse 60% 40% at 80% 20%, hsl(330 100% 65% / 0.04), transparent)
-              `,
-            }}
-          />
+          <div className="absolute inset-0" style={{
+            background: `radial-gradient(ellipse 80% 50% at 50% 0%, hsl(260 100% 60% / 0.05), transparent),
+              radial-gradient(ellipse 60% 40% at 80% 20%, hsl(330 100% 65% / 0.04), transparent)`,
+          }} />
         </div>
 
         {/* Header */}
-        <header
-          className="flex-shrink-0 z-30 px-4 pt-3 pb-3 safe-area-pt"
-          style={{
-            background: 'rgba(0, 0, 0, 0.7)',
-            backdropFilter: 'blur(40px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-            borderBottom: '0.5px solid rgba(255, 255, 255, 0.06)',
-          }}
-        >
-          <motion.h1
-            className="text-2xl font-bold mb-3 tracking-tight"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
+        <header className="flex-shrink-0 z-30 px-4 pt-3 pb-3 safe-area-pt" style={{
+          background: 'rgba(0, 0, 0, 0.7)',
+          backdropFilter: 'blur(40px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+          borderBottom: '0.5px solid rgba(255, 255, 255, 0.06)',
+        }}>
+          <motion.h1 className="text-2xl font-bold mb-3 tracking-tight"
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
             Search
           </motion.h1>
-          
-          {/* Search bar */}
+
           <div className="relative">
             <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              placeholder="Artists, songs, or albums"
+            <Input value={query} onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setIsFocused(true)} onBlur={() => setIsFocused(false)}
+              placeholder="Any song, artist, or album worldwide"
               className="pl-10 pr-8 h-11 text-sm rounded-xl border-0"
               style={{
                 background: 'rgba(255, 255, 255, 0.06)',
                 border: isFocused ? '1px solid hsl(var(--primary) / 0.4)' : '1px solid rgba(255,255,255,0.06)',
                 transition: 'border-color 0.2s',
-              }}
-            />
+              }} />
             {query && (
-              <button
-                onClick={() => { setQuery(''); setAudiusResults([]); }}
+              <button onClick={() => { setQuery(''); setAudiusResults([]); setYtResults([]); }}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full"
-                style={{ background: 'rgba(255,255,255,0.15)' }}
-              >
+                style={{ background: 'rgba(255,255,255,0.15)' }}>
                 <X className="w-3 h-3" />
               </button>
             )}
           </div>
 
-          {/* Source tabs when searching */}
+          {/* Source tabs */}
           {hasQuery && (
-            <div className="flex gap-2 mt-2.5">
-              {[
+            <div className="flex gap-2 mt-2.5 overflow-x-auto hide-scrollbar">
+              {([
                 { key: 'all' as SearchSource, label: 'All', icon: Globe },
+                { key: 'ytmusic' as SearchSource, label: 'YT Music', icon: Youtube },
                 { key: 'library' as SearchSource, label: 'Library', icon: Music },
                 { key: 'audius' as SearchSource, label: 'Audius', icon: Headphones },
-              ].map(tab => (
-                <motion.button
-                  key={tab.key}
-                  onClick={() => setSource(tab.key)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+              ]).map(tab => (
+                <motion.button key={tab.key} onClick={() => setSource(tab.key)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0"
                   style={{
                     background: source === tab.key ? 'hsl(var(--primary) / 0.2)' : 'rgba(255,255,255,0.05)',
                     border: source === tab.key ? '1px solid hsl(var(--primary) / 0.3)' : '1px solid rgba(255,255,255,0.06)',
                     color: source === tab.key ? 'hsl(var(--primary))' : undefined,
-                  }}
-                  whileTap={{ scale: 0.95 }}
-                >
+                  }} whileTap={{ scale: 0.95 }}>
                   <tab.icon className="w-3 h-3" />
                   {tab.label}
+                  {tab.key === 'ytmusic' && ytResults.length > 0 && (
+                    <span className="ml-0.5 text-[10px] opacity-60">{ytResults.length}</span>
+                  )}
                   {tab.key === 'audius' && audiusResults.length > 0 && (
                     <span className="ml-0.5 text-[10px] opacity-60">{audiusResults.length}</span>
                   )}
@@ -279,31 +275,17 @@ const Search = () => {
             </div>
           )}
 
-          {/* Active Filter */}
           {activeFilter && (
-            <motion.div
-              className="mt-2.5 flex items-center gap-2"
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <div
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+            <motion.div className="mt-2.5 flex items-center gap-2"
+              initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
                 style={{
-                  background: activeFilter.type === 'genre'
-                    ? 'hsl(var(--primary) / 0.15)'
-                    : 'hsl(var(--accent) / 0.15)',
+                  background: activeFilter.type === 'genre' ? 'hsl(var(--primary) / 0.15)' : 'hsl(var(--accent) / 0.15)',
                   border: '1px solid rgba(255,255,255,0.06)',
-                }}
-              >
-                {activeFilter.type === 'genre' ? (
-                  <Tag className="w-3 h-3 text-primary" />
-                ) : (
-                  <Sparkles className="w-3 h-3 text-accent" />
-                )}
+                }}>
+                {activeFilter.type === 'genre' ? <Tag className="w-3 h-3 text-primary" /> : <Sparkles className="w-3 h-3 text-accent" />}
                 <span className="font-medium text-xs">{activeFilter.value}</span>
-                <button onClick={clearFilter} className="ml-1 p-0.5">
-                  <X className="w-3 h-3" />
-                </button>
+                <button onClick={clearFilter} className="ml-1 p-0.5"><X className="w-3 h-3" /></button>
               </div>
             </motion.div>
           )}
@@ -313,32 +295,19 @@ const Search = () => {
         <main className="flex-1 overflow-y-auto px-4 pt-4 pb-32 relative z-10" style={{ WebkitOverflowScrolling: 'touch' }}>
           <AnimatePresence mode="wait">
             {!query && !activeFilter && (
-              <motion.div
-                key="browse"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                {/* Moods */}
+              <motion.div key="browse" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
                 <h2 className="text-sm font-bold mb-2.5 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-accent" />
-                  Moods
+                  <Sparkles className="w-4 h-4 text-accent" /> Moods
                 </h2>
                 <div className="flex gap-2.5 overflow-x-auto pb-4 -mx-4 px-4 hide-scrollbar">
                   {moods.map((mood, i) => (
-                    <motion.button
-                      key={mood.name}
+                    <motion.button key={mood.name}
                       className={`flex-shrink-0 w-[85px] h-16 rounded-2xl overflow-hidden relative bg-gradient-to-br ${mood.color}`}
                       onClick={() => searchByMood(mood.name)}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.05 }}
-                      whileTap={{ scale: 0.93 }}
-                      style={{
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-                      }}
-                    >
+                      initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.05 }} whileTap={{ scale: 0.93 }}
+                      style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
                         <span className="text-xl mb-0.5">{mood.icon}</span>
                         <span className="text-[10px] font-bold text-primary-foreground">{mood.name}</span>
@@ -347,29 +316,19 @@ const Search = () => {
                   ))}
                 </div>
 
-                {/* Genres */}
                 <h2 className="text-sm font-bold mb-2.5 mt-1 flex items-center gap-1.5">
-                  <Tag className="w-4 h-4 text-primary" />
-                  Genres
+                  <Tag className="w-4 h-4 text-primary" /> Genres
                 </h2>
                 <div className="grid grid-cols-2 gap-2.5">
                   {genres.map((genre, i) => (
-                    <motion.button
-                      key={genre.name}
+                    <motion.button key={genre.name}
                       className={`relative h-20 rounded-2xl overflow-hidden bg-gradient-to-br ${genre.color}`}
                       onClick={() => searchByGenre(genre.name)}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 + 0.1 }}
-                      whileTap={{ scale: 0.95 }}
-                      style={{
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-                      }}
-                    >
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 + 0.1 }} whileTap={{ scale: 0.95 }}
+                      style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
                       <span className="absolute top-2.5 right-2.5 text-xl">{genre.icon}</span>
-                      <span className="absolute bottom-2.5 left-3 text-sm font-bold text-primary-foreground">
-                        {genre.name}
-                      </span>
+                      <span className="absolute bottom-2.5 left-3 text-sm font-bold text-primary-foreground">{genre.name}</span>
                     </motion.button>
                   ))}
                 </div>
@@ -378,95 +337,137 @@ const Search = () => {
           </AnimatePresence>
 
           {/* Results */}
-          {searching ? (
-            <SearchSkeleton />
-          ) : displayResults.length > 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.2 }}
-            >
-              <h2 className="text-sm font-bold mb-3">{displayResults.length} results</h2>
-              <div className="space-y-1">
-                {displayResults.map((song, i) => {
-                  const isActive = currentSong?.id === song.id;
-                  const isAudius = song.id.startsWith('audius-');
-                  const offlineUrl = isAudius ? undefined : getDownloadedUrl(song.id);
-                  return (
-                    <motion.div
-                      key={song.id}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer active:scale-[0.98] transition-all ${
-                        isActive ? 'bg-primary/10' : 'active:bg-white/5'
-                      }`}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.025, duration: 0.25 }}
-                      onClick={() => playSong(song, offlineUrl, displayResults)}
-                    >
-                      {/* Album art */}
-                      <div className={`relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 ${
-                        isActive ? 'shadow-lg shadow-primary/20' : 'shadow-md'
-                      }`}>
-                        {song.cover_url ? (
-                          <img src={song.cover_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                            <Music className="w-4 h-4 text-foreground/30" />
+          {searching ? <SearchSkeleton /> : (
+            <>
+              {/* Library + Audius results */}
+              {libraryAndAudius.length > 0 && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+                  {source !== 'ytmusic' && (
+                    <h2 className="text-sm font-bold mb-3">
+                      {source === 'all' ? 'Library & Audius' : source === 'library' ? 'Library' : 'Audius'} · {libraryAndAudius.length} results
+                    </h2>
+                  )}
+                  <div className="space-y-1">
+                    {libraryAndAudius.map((song, i) => {
+                      const isActive = currentSong?.id === song.id;
+                      const isAudius = song.id.startsWith('audius-');
+                      const offlineUrl = isAudius ? undefined : getDownloadedUrl(song.id);
+                      return (
+                        <motion.div key={song.id}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer active:scale-[0.98] transition-all ${isActive ? 'bg-primary/10' : 'active:bg-white/5'}`}
+                          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.025, duration: 0.25 }}
+                          onClick={() => playSong(song, offlineUrl, libraryAndAudius)}>
+                          <div className={`relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 ${isActive ? 'shadow-lg shadow-primary/20' : 'shadow-md'}`}>
+                            {song.cover_url ? (
+                              <img src={song.cover_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                                <Music className="w-4 h-4 text-foreground/30" />
+                              </div>
+                            )}
+                            {isAudius && (
+                              <div className="absolute bottom-0 right-0 w-4 h-4 rounded-tl-md bg-purple-500 flex items-center justify-center">
+                                <Headphones className="w-2.5 h-2.5 text-white" />
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {isAudius && (
-                          <div className="absolute bottom-0 right-0 w-4 h-4 rounded-tl-md bg-purple-500 flex items-center justify-center">
-                            <Headphones className="w-2.5 h-2.5 text-white" />
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-semibold text-[13px] truncate ${isActive ? 'text-primary' : 'text-foreground'}`}>{song.title}</p>
+                            <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">
+                              {song.artist}
+                              {isAudius && <span className="ml-1 text-purple-400">· Audius</span>}
+                            </p>
                           </div>
-                        )}
-                      </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {isActive && isPlaying ? (
+                              <div className="flex items-end gap-[2px] h-4 mr-1">
+                                {[0, 1, 2].map((j) => (
+                                  <div key={j} className="w-[3px] bg-primary rounded-full animate-audio-wave" style={{ animationDelay: `${j * 0.12}s` }} />
+                                ))}
+                              </div>
+                            ) : (
+                              <>
+                                {!isAudius && <LikeButton songId={song.id} size="sm" className="w-8 h-8" />}
+                                {!isAudius && <DownloadButton song={song} size="sm" />}
+                              </>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
 
-                      {/* Song info */}
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-semibold text-[13px] truncate ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                          {song.title}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">
-                          {song.artist}
-                          {isAudius && <span className="ml-1 text-purple-400">· Audius</span>}
-                        </p>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {isActive && isPlaying ? (
-                          <div className="flex items-end gap-[2px] h-4 mr-1">
-                            {[0, 1, 2].map((j) => (
-                              <div
-                                key={j}
-                                className="w-[3px] bg-primary rounded-full animate-audio-wave"
-                                style={{ animationDelay: `${j * 0.12}s` }}
-                              />
-                            ))}
+              {/* YT Music results */}
+              {(source === 'all' || source === 'ytmusic') && ytResults.length > 0 && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={libraryAndAudius.length > 0 ? 'mt-6' : ''}>
+                  <h2 className="text-sm font-bold mb-3 flex items-center gap-1.5">
+                    <Youtube className="w-4 h-4 text-red-500" />
+                    YouTube Music · {ytResults.length} results
+                  </h2>
+                  <div className="space-y-1">
+                    {ytResults.map((track, i) => {
+                      const isActive = currentSong?.id === track.id;
+                      const isResolving = resolvingId === track.id;
+                      return (
+                        <motion.div key={track.id}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer active:scale-[0.98] transition-all ${isActive ? 'bg-primary/10' : 'active:bg-white/5'} ${isResolving ? 'opacity-60' : ''}`}
+                          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.025, duration: 0.25 }}
+                          onClick={() => !isResolving && handlePlayYT(track)}>
+                          <div className={`relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 ${isActive ? 'shadow-lg shadow-primary/20' : 'shadow-md'}`}>
+                            {track.cover_url ? (
+                              <img src={track.cover_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-red-500/20 to-orange-500/20 flex items-center justify-center">
+                                <Music className="w-4 h-4 text-foreground/30" />
+                              </div>
+                            )}
+                            <div className="absolute bottom-0 right-0 w-4 h-4 rounded-tl-md bg-red-600 flex items-center justify-center">
+                              <Youtube className="w-2.5 h-2.5 text-white" />
+                            </div>
                           </div>
-                        ) : (
-                          <>
-                            {!isAudius && <LikeButton songId={song.id} size="sm" className="w-8 h-8" />}
-                            {!isAudius && <DownloadButton song={song} size="sm" />}
-                          </>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </motion.div>
-          ) : (query.length > 1 || activeFilter) && !searching ? (
-            <div className="text-center py-8">
-              <div
-                className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.06)' }}
-              >
-                <Music className="w-7 h-7 text-muted-foreground/50" />
-              </div>
-              <p className="text-muted-foreground text-sm">No results found</p>
-            </div>
-          ) : null}
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-semibold text-[13px] truncate ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                              {isResolving ? 'Loading stream...' : track.title}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">
+                              {track.artist}
+                              <span className="ml-1 text-red-400">· YT Music</span>
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {isActive && isPlaying ? (
+                              <div className="flex items-end gap-[2px] h-4 mr-1">
+                                {[0, 1, 2].map((j) => (
+                                  <div key={j} className="w-[3px] bg-primary rounded-full animate-audio-wave" style={{ animationDelay: `${j * 0.12}s` }} />
+                                ))}
+                              </div>
+                            ) : isResolving ? (
+                              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            ) : null}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* No results */}
+              {(query.length > 1 || activeFilter) && !searching && libraryAndAudius.length === 0 && ytResults.length === 0 && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.06)' }}>
+                    <Music className="w-7 h-7 text-muted-foreground/50" />
+                  </div>
+                  <p className="text-muted-foreground text-sm">No results found</p>
+                </div>
+              )}
+            </>
+          )}
         </main>
 
         <BottomNav />

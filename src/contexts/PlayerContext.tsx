@@ -116,6 +116,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => subscription.unsubscribe();
   }, []);
 
+  // Track whether audio was playing before going to background
+  const wasPlayingRef = useRef(false);
+  const keepAliveRef = useRef<number | null>(null);
+
   // Create audio element once
   useEffect(() => {
     const audio = new Audio();
@@ -135,26 +139,54 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     nextAudio.setAttribute('webkit-playsinline', 'true');
     nextAudioRef.current = nextAudio;
 
-    // Resume audio when app returns to foreground (prevents interruption)
+    // Track playing state before going to background
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && audioRef.current && !audioRef.current.paused === false) {
-        // If audio was playing before going to background, try to resume
+      if (document.visibilityState === 'hidden') {
+        // Entering background — remember if we were playing
+        wasPlayingRef.current = !!(audioRef.current && !audioRef.current.paused);
+      } else if (document.visibilityState === 'visible') {
+        // Returning to foreground — resume if was playing
+        if (wasPlayingRef.current && audioRef.current && audioRef.current.paused && audioRef.current.src) {
+          audioRef.current.play().catch(() => {});
+        }
       }
     };
     
     const handleFocus = () => {
-      if (audioRef.current && audioRef.current.src && audioRef.current.paused && audioRef.current.currentTime > 0) {
-        // Audio was interrupted, try to resume
+      if (audioRef.current && audioRef.current.src && audioRef.current.paused && wasPlayingRef.current) {
         audioRef.current.play().catch(() => {});
       }
     };
 
+    // Keep-alive: touch audio buffer every 5s to prevent browser from suspending
+    keepAliveRef.current = window.setInterval(() => {
+      if (audioRef.current && !audioRef.current.paused && audioRef.current.readyState >= 2) {
+        // Touch the currentTime to keep the audio pipeline active
+        const _ = audioRef.current.currentTime;
+      }
+    }, 5000);
+
+    // Handle buffering stalls — nudge playback
+    const handleWaiting = () => {
+      if (audioRef.current && !audioRef.current.paused) {
+        setTimeout(() => {
+          if (audioRef.current && audioRef.current.readyState < 3 && !audioRef.current.paused) {
+            // Nudge currentTime slightly to unstall
+            audioRef.current.currentTime = audioRef.current.currentTime;
+          }
+        }, 2000);
+      }
+    };
+
+    audio.addEventListener('waiting', handleWaiting);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
 
     return () => {
+      audio.removeEventListener('waiting', handleWaiting);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
+      if (keepAliveRef.current) clearInterval(keepAliveRef.current);
       audio.pause();
       audio.src = '';
       nextAudio.pause();

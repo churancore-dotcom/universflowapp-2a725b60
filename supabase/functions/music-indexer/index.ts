@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LASTFM_API_KEY = Deno.env.get('LASTFM_API_KEY') || '';
+const LASTFM_API_KEY = Deno.env.get('LASTFM_API_KEY') || '9560c1d6069ed833e8104e1ef8ee9e95';
 
 const LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
 const INVIDIOUS_INSTANCES = [

@@ -140,7 +140,7 @@ const Search = () => {
         cover_url: t.artwork?.['480x480'] || t.artwork?.['150x150'] || undefined,
         audio_url: `${AUDIUS_BASE}/tracks/${t.id}/stream?app_name=${APP_NAME}`,
         duration: t.duration,
-      })));
+      }));
     } catch (err) {
       console.error('Audius search failed:', err);
       return [];

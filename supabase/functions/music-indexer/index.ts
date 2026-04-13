@@ -102,7 +102,7 @@ type IndexedTrack = {
 
 type ResolveResult = {
   success: boolean; streamUrl?: string; videoId?: string;
-  duration?: number; title?: string; artist?: string; error?: string; fallback?: boolean;
+  duration?: number; title?: string; artist?: string; cover_url?: string; error?: string; fallback?: boolean;
 };
 
 const LASTFM_PLACEHOLDER_HASH = '2a96cbd8b46e442fc41c2b86b821562f';
@@ -179,6 +179,51 @@ async function getItunesArtwork(artist: string, title: string): Promise<string |
   }
 }
 
+async function getDeezerArtwork(artist: string, title: string): Promise<string | undefined> {
+  const cacheKey = `deezer-art:${artist}:${title}`;
+  const cached = getCached<string | null>(cacheKey);
+  if (cached !== null) return cached || undefined;
+
+  try {
+    const url = new URL('https://api.deezer.com/search');
+    url.searchParams.set('q', `artist:"${artist}" track:"${title}"`);
+    url.searchParams.set('limit', '5');
+
+    const data = await fetchJson(url.toString(), 5000);
+    const results = Array.isArray(data?.data) ? data.data : [];
+    const best = results
+      .map((item: Record<string, any>) => ({
+        item,
+        score: scoreMetadataCandidate(
+          {
+            artistName: item?.artist?.name,
+            trackName: item?.title,
+          },
+          artist,
+          title,
+        ),
+      }))
+      .sort((a, b) => b.score - a.score)[0]?.item;
+
+    const artwork = sanitizeArtwork(String(best?.album?.cover_xl || best?.album?.cover_big || best?.album?.cover_medium || ''));
+    setCached(cacheKey, artwork || null, 12 * 60 * 60 * 1000);
+    return artwork;
+  } catch {
+    setCached(cacheKey, null, 30 * 60 * 1000);
+    return undefined;
+  }
+}
+
+async function resolveArtwork(artist: string, title: string, preferred?: string) {
+  const safePreferred = sanitizeArtwork(preferred);
+  if (safePreferred) return safePreferred;
+
+  const deezerArtwork = await getDeezerArtwork(artist, title);
+  if (deezerArtwork) return deezerArtwork;
+
+  return getItunesArtwork(artist, title);
+}
+
 async function fetchJson(url: string, timeoutMs = 6000) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
@@ -235,8 +280,7 @@ function mapTrack(base: LastFmTrack, info?: LastFmTrack | null): IndexedTrack | 
 }
 
 async function hydrateTrackArtwork(track: IndexedTrack): Promise<IndexedTrack> {
-  if (track.cover_url) return track;
-  const artwork = await getItunesArtwork(track.artist, track.title);
+  const artwork = await resolveArtwork(track.artist, track.title, track.cover_url);
   return artwork ? { ...track, cover_url: artwork } : track;
 }
 
@@ -539,6 +583,7 @@ async function resolveStream(artist: string, title: string): Promise<ResolveResu
         videoId,
         duration: resolved.duration || Number(candidate.lengthSeconds || candidate.duration || 0) || undefined,
         title, artist,
+          cover_url: await resolveArtwork(artist, title),
       };
       setCached(ck, result, 45 * 60 * 1000); // cache resolved streams for 45 min
       return result;
@@ -567,7 +612,7 @@ serve(async (req) => {
 
     if (action === 'search') {
       const query = typeof body.query === 'string' ? body.query.trim() : '';
-      const limit = Math.max(1, Math.min(30, typeof body.limit === 'number' ? body.limit : 24));
+      const limit = Math.max(1, Math.min(40, typeof body.limit === 'number' ? body.limit : 36));
       if (query.length < 2) {
         return new Response(JSON.stringify({ success: false, error: 'Search query must be at least 2 characters' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

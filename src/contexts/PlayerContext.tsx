@@ -13,6 +13,7 @@ export interface Song {
   artist_id?: string;
   artist_photo_url?: string;
   play_count?: number;
+  source?: 'library' | 'audius' | 'indexed';
 }
 
 interface PlayerContextType {

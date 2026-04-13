@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Song } from './PlayerContext';
+import { toast } from 'sonner';
+import { canDownloadSong, getDownloadUnavailableMessage } from '@/lib/songSupport';
 
 interface DownloadedSong extends Song {
   downloadedAt: string;
@@ -243,8 +245,14 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const downloadSong = useCallback(async (song: Song) => {
+    if (!canDownloadSong(song)) {
+      toast.error(getDownloadUnavailableMessage(song));
+      return;
+    }
+
     if (!isIndexedDBSupported) {
       console.warn('Downloads not available - IndexedDB not supported');
+      toast.error('Downloads are not available on this device');
       return;
     }
 
@@ -335,6 +343,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     } catch (error) {
       console.error('Download failed:', error);
+      toast.error(getDownloadUnavailableMessage(song));
       setDownloadProgress(prev => ({
         ...prev,
         [song.id]: { songId: song.id, progress: 0, status: 'error' }

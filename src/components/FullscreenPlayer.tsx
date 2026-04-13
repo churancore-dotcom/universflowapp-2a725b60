@@ -13,6 +13,7 @@ import SongReactions from './SongReactions';
 import { supabase } from '@/integrations/supabase/client';
 import type { Song } from '@/contexts/PlayerContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { canDownloadSong, canLikeSong, isIndexedSong } from '@/lib/songSupport';
 
 const formatTime = (seconds: number) => {
   if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
@@ -111,6 +112,9 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   const safeProgress = isFinite(progress) ? progress : 0;
   const safeDuration = isFinite(duration) && duration > 0 ? duration : 100;
   const timeRemaining = safeDuration - safeProgress;
+  const showLikeAction = canLikeSong(currentSong);
+  const showDownloadAction = canDownloadSong(currentSong);
+  const isPlaybackOnlyStream = isIndexedSong(currentSong);
 
   return (
     <>
@@ -268,8 +272,13 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   </motion.div>
                 </AnimatePresence>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <LikeButton songId={currentSong.id} size="sm" />
-                  <DownloadButton song={currentSong} size="sm" />
+                  {showLikeAction && <LikeButton songId={currentSong.id} size="sm" />}
+                  {showDownloadAction && <DownloadButton song={currentSong} size="sm" />}
+                  {isPlaybackOnlyStream && (
+                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-white/70">
+                      Stream only
+                    </span>
+                  )}
                 </div>
               </div>
 

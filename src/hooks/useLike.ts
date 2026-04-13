@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { canLikeSong, getLikeUnavailableMessage } from '@/lib/songSupport';
 
 // ============================================================
 // Batch Like Cache — single query loads ALL user likes,
@@ -52,7 +53,15 @@ export const useLike = (songId: string) => {
 
   // Load entire library once, then check cache
   useEffect(() => {
-    if (!user || !songId) return;
+    if (!songId || !canLikeSong({ id: songId })) {
+      setIsLiked(false);
+      return;
+    }
+
+    if (!user) {
+      setIsLiked(false);
+      return;
+    }
 
     const check = async () => {
       await loadLikeCache(user.id);
@@ -64,6 +73,11 @@ export const useLike = (songId: string) => {
   }, [user?.id, songId]);
 
   const toggleLike = useCallback(async () => {
+    if (!canLikeSong({ id: songId })) {
+      toast.error(getLikeUnavailableMessage());
+      return;
+    }
+
     if (!user) {
       toast.error('Please sign in to like songs');
       return;

@@ -46,6 +46,7 @@ const mapSongRow = (s: any): Song => ({
   audio_url: s.audio_url,
   artist_id: (s.artists as any)?.id || s.artist_id || undefined,
   artist_photo_url: (s.artists as any)?.photo_url || undefined,
+  source: 'library',
 });
 
 const Search = () => {
@@ -96,7 +97,7 @@ const Search = () => {
       const [libraryResponse, audiusResponse, indexedResponse] = await Promise.allSettled([
         searchSongs(trimmedQuery),
         searchAudius(trimmedQuery),
-        searchIndexedTracks(trimmedQuery, 24),
+        searchIndexedTracks(trimmedQuery, 36),
       ]);
 
       if (cancelled) return;
@@ -140,6 +141,7 @@ const Search = () => {
         cover_url: t.artwork?.['480x480'] || t.artwork?.['150x150'] || undefined,
         audio_url: `${AUDIUS_BASE}/tracks/${t.id}/stream?app_name=${APP_NAME}`,
         duration: t.duration,
+        source: 'audius',
       }));
     } catch (err) {
       console.error('Audius search failed:', err);
@@ -158,9 +160,10 @@ const Search = () => {
         title: resolved.title || track.title,
         artist: resolved.artist || track.artist,
         album: track.album,
-        cover_url: track.cover_url,
+        cover_url: resolved.cover_url || track.cover_url,
         audio_url: resolved.streamUrl,
         duration: resolved.duration || track.duration,
+        source: 'indexed',
       };
       playSong(song, undefined, [song]);
     } catch (error) {

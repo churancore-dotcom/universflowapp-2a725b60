@@ -25,6 +25,7 @@ interface ResolveTrackResponse {
   duration?: number;
   title?: string;
   artist?: string;
+  cover_url?: string;
   error?: string;
   fallback?: boolean;
 }
@@ -107,7 +108,7 @@ async function resolveViaYouTubeFallback(artist: string, title: string): Promise
   };
 }
 
-export async function searchIndexedTracks(query: string, limit = 24): Promise<IndexedTrack[]> {
+export async function searchIndexedTracks(query: string, limit = 36): Promise<IndexedTrack[]> {
   const data = await requestIndexer<IndexedTracksResponse>({
     action: 'search',
     query,

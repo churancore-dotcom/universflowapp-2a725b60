@@ -1,7 +1,7 @@
 import React, { memo, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { User, Sparkles } from 'lucide-react';
+import { User, Sparkles, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { triggerHaptic } from '@/hooks/useHaptics';
 
@@ -75,6 +75,7 @@ ArtistCard.displayName = 'ArtistCard';
 const FeaturedArtistsSection = () => {
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchArtists = async () => {
@@ -122,16 +123,25 @@ const FeaturedArtistsSection = () => {
           border: '0.5px solid rgba(255,255,255,0.08)',
         }}
       >
-        <div className="flex items-center gap-2 mb-4">
-          <div
-            className="w-6 h-6 rounded-lg flex items-center justify-center"
-            style={{
-              background: 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--primary) / 0.1))',
-            }}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-6 h-6 rounded-lg flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--primary) / 0.1))',
+              }}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+            </div>
+            <h2 className="text-[16px] font-bold tracking-tight text-foreground">Featured Artists</h2>
           </div>
-          <h2 className="text-[16px] font-bold tracking-tight text-foreground">Featured Artists</h2>
+          <motion.button
+            className="flex items-center gap-1 text-xs font-medium text-primary"
+            onClick={() => { triggerHaptic('selection'); navigate('/artists'); }}
+            whileTap={{ scale: 0.95 }}
+          >
+            View All <ChevronRight className="w-3.5 h-3.5" />
+          </motion.button>
         </div>
         
         <div 

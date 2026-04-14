@@ -18,22 +18,21 @@ export const isAudiusSong = (song?: ActionableSongLike | null) => {
   return song?.source === 'audius' || id.startsWith('audius-');
 };
 
-export const canLikeSong = (song?: ActionableSongLike | null) => {
-  if (!song?.id) return false;
-  return isCatalogSongId(song.id) && !isIndexedSong(song) && !isAudiusSong(song);
+// Allow liking ANY song — stream songs get stored by their stream ID
+export const canLikeSong = (_song?: ActionableSongLike | null) => {
+  return Boolean(_song?.id);
 };
 
+// Allow downloading ANY song that has an audio URL
 export const canDownloadSong = (song?: ActionableSongLike | null) => {
-  if (!song?.audio_url) return false;
-  return !isIndexedSong(song);
+  return Boolean(song?.audio_url);
 };
 
-export const getLikeUnavailableMessage = () => 'Only Univers Flow catalog songs can be added to your library.';
+export const getLikeUnavailableMessage = () => 'Unable to add this song to your library right now.';
 
 export const getDownloadUnavailableMessage = (song?: ActionableSongLike | null) => {
-  if (isIndexedSong(song)) {
-    return 'Web stream tracks are playback-only and cannot be downloaded.';
+  if (!song?.audio_url) {
+    return 'This track has no audio URL available for download.';
   }
-
   return 'This track cannot be downloaded right now.';
 };

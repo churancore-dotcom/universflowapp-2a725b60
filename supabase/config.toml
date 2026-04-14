@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.gemma-chat]
 verify_jwt = false
+
+[functions.music-indexer]
+verify_jwt = false
+
+[functions.verify-registered-user]
+verify_jwt = false

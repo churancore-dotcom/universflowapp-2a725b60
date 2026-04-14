@@ -392,8 +392,8 @@ const Search = () => {
                               </div>
                             ) : (
                               <>
-                                {!isAudius && <LikeButton songId={song.id} size="sm" className="w-8 h-8" />}
-                                {!isAudius && <DownloadButton song={song} size="sm" />}
+                                <LikeButton songId={song.id} size="sm" className="w-8 h-8" />
+                                <DownloadButton song={song} size="sm" />
                               </>
                             )}
                           </div>
@@ -451,7 +451,9 @@ const Search = () => {
                               </div>
                             ) : isResolving ? (
                               <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                            ) : null}
+                            ) : (
+                              <LikeButton songId={track.id} size="sm" className="w-8 h-8" />
+                            )}
                           </div>
                         </motion.div>
                       );

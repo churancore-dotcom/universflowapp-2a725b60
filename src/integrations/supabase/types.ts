@@ -780,6 +780,7 @@ export type Database = {
           username: string
         }[]
       }
+      get_user_count: { Args: never; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -787,10 +788,9 @@ export type Database = {
         }
         Returns: boolean
       }
-      redeem_promo_code: {
-        Args: { p_code: string; p_user_id: string }
-        Returns: Json
-      }
+      redeem_promo_code:
+        | { Args: { p_code: string }; Returns: Json }
+        | { Args: { p_code: string; p_user_id: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

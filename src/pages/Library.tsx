@@ -56,7 +56,7 @@ const Library = () => {
         .select('*, songs(*, artists(id, name, photo_url))')
         .eq('user_id', user.id)
         .order('added_at', { ascending: false })
-        .limit(20),
+        .limit(100),
       supabase
         .from('playlists')
         .select('*')
@@ -66,7 +66,7 @@ const Library = () => {
         .from('artists')
         .select('id, name, photo_url')
         .order('name')
-        .limit(10),
+        .limit(50),
     ]);
 
     if (liked.data) {

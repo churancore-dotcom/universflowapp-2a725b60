@@ -310,8 +310,8 @@ const Settings = () => {
               <h2 className="text-xs font-semibold text-muted-foreground uppercase">Community</h2>
             </div>
             <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(28, 28, 30, 0.8)', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
-              <button className="w-full px-4 py-3 flex items-center justify-between active:bg-white/5" onClick={() => navigate('/request-song')}>
-                <span className="text-sm">Request a Song</span>
+              <button className="w-full px-4 py-3 flex items-center justify-between active:bg-white/5" onClick={() => navigate('/listen-together')}>
+                <span className="text-sm">Play with Mate ❤️</span>
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
               </button>
             </div>

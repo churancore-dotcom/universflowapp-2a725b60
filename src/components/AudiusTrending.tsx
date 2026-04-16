@@ -4,11 +4,11 @@ import { Headphones, TrendingUp } from 'lucide-react';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 
 const AUDIUS_NODES = [
-  'https://audius-discovery-1.the-standard.io/v1',
-  'https://audius-discovery-2.the-standard.io/v1',
   'https://discoveryprovider.audius.co/v1',
   'https://discoveryprovider2.audius.co/v1',
   'https://discoveryprovider3.audius.co/v1',
+  'https://audius-discovery-1.the-standard.io/v1',
+  'https://audius-discovery-2.the-standard.io/v1',
 ];
 const APP_NAME = 'univers_flow_official';
 

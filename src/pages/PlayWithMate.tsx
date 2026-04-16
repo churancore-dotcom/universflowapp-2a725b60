@@ -93,22 +93,25 @@ const PlayWithMate = () => {
 
     let active = true;
 
-    supabase
-      .from('profiles')
-      .select('username, avatar_url')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('username, avatar_url')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
         if (!active) return;
+
         setCurrentProfile({
           username: data?.username || user.email?.split('@')[0] || 'Listener',
           avatarUrl: data?.avatar_url || undefined,
         });
-      })
-      .catch(() => {
+      } catch {
         if (!active) return;
         setCurrentProfile({ username: user.email?.split('@')[0] || 'Listener' });
-      });
+      }
+    })();
 
     return () => {
       active = false;

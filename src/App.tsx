@@ -7,6 +7,7 @@ import { AnimatePresence } from "framer-motion";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { PlayerProvider, usePlayer } from "./contexts/PlayerContext";
 import { DownloadProvider } from "./contexts/DownloadContext";
+import { PlayWithMateProvider } from "./contexts/PlayWithMateContext";
 import SplashScreen from "./components/SplashScreen";
 import Onboarding from "./components/Onboarding";
 import MobileShell from "./components/MobileShell";
@@ -230,11 +231,13 @@ const App = () => {
       <BrowserRouter>
         <AuthProvider>
           <PlayerProvider>
-            <DownloadProvider>
-              <TooltipProvider>
-                <AppContent />
-              </TooltipProvider>
-            </DownloadProvider>
+            <PlayWithMateProvider>
+              <DownloadProvider>
+                <TooltipProvider>
+                  <AppContent />
+                </TooltipProvider>
+              </DownloadProvider>
+            </PlayWithMateProvider>
           </PlayerProvider>
         </AuthProvider>
       </BrowserRouter>

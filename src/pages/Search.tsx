@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search as SearchIcon, Music, X, Tag, Sparkles, Headphones, Globe, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
+import { Search as SearchIcon, Music, X, Tag, Sparkles, Globe, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
@@ -15,9 +15,6 @@ import { Input } from '@/components/ui/input';
 import { SearchSkeleton } from '@/components/PageSkeletons';
 import { prefetchIndexedTrack, resolveIndexedTrack, searchIndexedTracks, type IndexedTrack } from '@/lib/musicIndexer';
 import { toast } from 'sonner';
-
-const AUDIUS_BASE = 'https://discoveryprovider.audius.co/v1';
-const APP_NAME = 'univers_flow_official';
 
 const genres = [
   { name: 'Pop', color: 'from-pink-500 to-rose-500', icon: '🎤' },
@@ -35,7 +32,7 @@ const moods = [
   { name: 'Focus', color: 'from-violet-500 to-purple-600', icon: '🎯' },
 ];
 
-type SearchSource = 'all' | 'library' | 'audius' | 'indexer';
+type SearchSource = 'all' | 'library' | 'indexer';
 
 // ── Search history ──
 const SEARCH_HISTORY_KEY = 'uf_search_history';
@@ -71,7 +68,6 @@ const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Song[]>([]);
-  const [audiusResults, setAudiusResults] = useState<Song[]>([]);
   const [indexedResults, setIndexedResults] = useState<IndexedTrack[]>([]);
   const [searching, setSearching] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -102,7 +98,6 @@ const Search = () => {
     if (trimmedQuery.length < 2) {
       if (!activeFilter) {
         setResults([]);
-        setAudiusResults([]);
         setIndexedResults([]);
       }
       return;
@@ -117,16 +112,14 @@ const Search = () => {
       addToSearchHistory(trimmedQuery);
       setSearchHistory(getSearchHistory());
 
-      const [libraryResponse, audiusResponse, indexedResponse] = await Promise.allSettled([
+      const [libraryResponse, indexedResponse] = await Promise.allSettled([
         searchSongs(trimmedQuery),
-        searchAudius(trimmedQuery),
         searchIndexedTracks(trimmedQuery, 50),
       ]);
 
       if (cancelled) return;
 
       setResults(libraryResponse.status === 'fulfilled' ? libraryResponse.value : []);
-      setAudiusResults(audiusResponse.status === 'fulfilled' ? audiusResponse.value : []);
       setIndexedResults(indexedResponse.status === 'fulfilled' ? indexedResponse.value : []);
       setSearching(false);
     }, 300);
@@ -154,30 +147,6 @@ const Search = () => {
     return Array.isArray(data) ? data.map(mapSongRow) : [];
   };
 
-  const searchAudius = async (searchTerm: string) => {
-    try {
-      const res = await fetch(
-        `${AUDIUS_BASE}/tracks/search?query=${encodeURIComponent(searchTerm)}&app_name=${APP_NAME}`,
-        { headers: { Accept: 'application/json' } }
-      );
-      if (!res.ok) return [];
-      const json = await res.json();
-        const tracks = (json.data || []).slice(0, 30);
-      return tracks.map((t: any) => ({
-        id: `audius-${t.id}`,
-        title: t.title,
-        artist: t.user?.name || 'Unknown Artist',
-        cover_url: t.artwork?.['480x480'] || t.artwork?.['150x150'] || undefined,
-        audio_url: `${AUDIUS_BASE}/tracks/${t.id}/stream?app_name=${APP_NAME}`,
-        duration: t.duration,
-        source: 'audius',
-      }));
-    } catch (err) {
-      console.error('Audius search failed:', err);
-      return [];
-    }
-  };
-
   const handlePlayIndexed = useCallback(async (track: IndexedTrack) => {
     setResolvingId(track.id);
     try {
@@ -203,7 +172,7 @@ const Search = () => {
   }, [playSong]);
 
   const searchByGenre = async (genre: string) => {
-    setQuery(''); setActiveFilter({ type: 'genre', value: genre }); setSearching(true); setAudiusResults([]); setIndexedResults([]);
+    setQuery(''); setActiveFilter({ type: 'genre', value: genre }); setSearching(true); setIndexedResults([]);
     const { data } = await supabase.from('songs').select('*, artists(id, name, photo_url)')
       .eq('is_visible', true).ilike('genre', `%${genre}%`).limit(20);
     if (data) {
@@ -213,7 +182,7 @@ const Search = () => {
   };
 
   const searchByMood = async (mood: string) => {
-    setQuery(''); setActiveFilter({ type: 'mood', value: mood }); setSearching(true); setAudiusResults([]); setIndexedResults([]);
+    setQuery(''); setActiveFilter({ type: 'mood', value: mood }); setSearching(true); setIndexedResults([]);
     const { data } = await supabase.from('songs').select('*, artists(id, name, photo_url)')
       .eq('is_visible', true).ilike('mood', `%${mood}%`).limit(20);
     if (data) {
@@ -224,14 +193,10 @@ const Search = () => {
 
   const clearFilter = () => {
     setActiveFilter(null); setQuery('');
-    setResults([]); setAudiusResults([]); setIndexedResults([]);
+    setResults([]); setIndexedResults([]);
   };
 
-  // Combine results based on source
-  const libraryAndAudius: Song[] = source === 'audius' ? audiusResults
-    : source === 'library' ? results
-    : source === 'indexer' ? []
-    : [...results, ...audiusResults];
+  const libraryResults: Song[] = source === 'indexer' ? [] : results;
 
   const visibleIndexedResults = source === 'all' || source === 'indexer' ? indexedResults : [];
 
@@ -271,7 +236,7 @@ const Search = () => {
                 transition: 'border-color 0.2s',
               }} />
             {query && (
-              <button onClick={() => { setQuery(''); setAudiusResults([]); setIndexedResults([]); }}
+              <button onClick={() => { setQuery(''); setIndexedResults([]); }}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full"
                 style={{ background: 'rgba(255,255,255,0.15)' }}>
                 <X className="w-3 h-3" />
@@ -283,10 +248,9 @@ const Search = () => {
           {hasQuery && (
             <div className="flex gap-2 mt-2.5 overflow-x-auto hide-scrollbar">
               {([
-                { key: 'all' as SearchSource, label: 'All', icon: Globe },
-                { key: 'indexer' as SearchSource, label: 'Web Stream', icon: Radio },
-                { key: 'library' as SearchSource, label: 'Library', icon: Music },
-                { key: 'audius' as SearchSource, label: 'Audius', icon: Headphones },
+                { key: 'all' as SearchSource, label: 'All Songs', icon: Globe },
+                { key: 'indexer' as SearchSource, label: 'Worldwide', icon: Radio },
+                { key: 'library' as SearchSource, label: 'Your Library', icon: Music },
               ]).map(tab => (
                 <motion.button key={tab.key} onClick={() => setSource(tab.key)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all flex-shrink-0"
@@ -299,9 +263,6 @@ const Search = () => {
                   {tab.label}
                   {tab.key === 'indexer' && indexedResults.length > 0 && (
                     <span className="ml-0.5 text-[10px] opacity-60">{indexedResults.length}</span>
-                  )}
-                  {tab.key === 'audius' && audiusResults.length > 0 && (
-                    <span className="ml-0.5 text-[10px] opacity-60">{audiusResults.length}</span>
                   )}
                 </motion.button>
               ))}
@@ -404,25 +365,24 @@ const Search = () => {
           {/* Results */}
           {searching ? <SearchSkeleton /> : (
             <>
-              {/* Library + Audius results */}
-              {libraryAndAudius.length > 0 && (
+              {/* Library results */}
+              {libraryResults.length > 0 && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
                   {source !== 'indexer' && (
                     <h2 className="text-sm font-bold mb-3">
-                               {source === 'all' ? 'Library & Audius' : source === 'library' ? 'Library' : 'Audius'} · {libraryAndAudius.length} results
+                      {source === 'all' ? 'Library Songs' : 'Your Library'} · {libraryResults.length} results
                     </h2>
                   )}
                   <div className="space-y-1">
-                    {libraryAndAudius.map((song, i) => {
+                    {libraryResults.map((song, i) => {
                       const isActive = currentSong?.id === song.id;
-                      const isAudius = song.id.startsWith('audius-');
-                      const offlineUrl = isAudius ? undefined : getDownloadedUrl(song.id);
+                      const offlineUrl = getDownloadedUrl(song.id);
                       return (
                         <motion.div key={song.id}
                           className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer active:scale-[0.98] transition-all ${isActive ? 'bg-primary/10' : 'active:bg-white/5'}`}
                           initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.025, duration: 0.25 }}
-                          onClick={() => playSong(song, offlineUrl, libraryAndAudius)}>
+                          onClick={() => playSong(song, offlineUrl, libraryResults)}>
                           <div className={`relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 ${isActive ? 'shadow-lg shadow-primary/20' : 'shadow-md'}`}>
                             {song.cover_url ? (
                               <img src={song.cover_url} alt="" className="w-full h-full object-cover" />
@@ -431,18 +391,10 @@ const Search = () => {
                                 <Music className="w-4 h-4 text-foreground/30" />
                               </div>
                             )}
-                            {isAudius && (
-                              <div className="absolute bottom-0 right-0 w-4 h-4 rounded-tl-md bg-purple-500 flex items-center justify-center">
-                                <Headphones className="w-2.5 h-2.5 text-white" />
-                              </div>
-                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className={`font-semibold text-[13px] truncate ${isActive ? 'text-primary' : 'text-foreground'}`}>{song.title}</p>
-                            <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">
-                              {song.artist}
-                              {isAudius && <span className="ml-1 text-purple-400">· Audius</span>}
-                            </p>
+                            <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">{song.artist}</p>
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {isActive && isPlaying ? (
@@ -467,10 +419,10 @@ const Search = () => {
 
               {/* Indexed stream results */}
               {visibleIndexedResults.length > 0 && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={libraryAndAudius.length > 0 ? 'mt-6' : ''}>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={libraryResults.length > 0 ? 'mt-6' : ''}>
                   <h2 className="text-sm font-bold mb-3 flex items-center gap-1.5">
                     <Radio className="w-4 h-4 text-primary" />
-                    Web Streams · {visibleIndexedResults.length} results
+                    Worldwide Songs · {visibleIndexedResults.length} results
                   </h2>
                   <div className="space-y-1">
                     {visibleIndexedResults.map((track, i) => {
@@ -496,12 +448,9 @@ const Search = () => {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className={`font-semibold text-[13px] truncate ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                              {isResolving ? 'Loading stream...' : track.title}
+                              {isResolving ? 'Starting song...' : track.title}
                             </p>
-                            <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">
-                              {track.artist}
-                              <span className="ml-1 text-primary">· Singer</span>
-                            </p>
+                            <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">{track.artist}</p>
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {isActive && isPlaying ? (
@@ -524,7 +473,7 @@ const Search = () => {
               )}
 
               {/* No results */}
-              {(query.length > 1 || activeFilter) && !searching && libraryAndAudius.length === 0 && visibleIndexedResults.length === 0 && (
+              {(query.length > 1 || activeFilter) && !searching && libraryResults.length === 0 && visibleIndexedResults.length === 0 && (
                 <div className="text-center py-8">
                   <div className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center"
                     style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.06)' }}>

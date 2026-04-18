@@ -81,11 +81,32 @@ const configureAudioElementSource = (audio: HTMLAudioElement, sourceUrl: string)
   audio.src = sourceUrl;
 };
 
+const DIRECT_PLAYABLE_HOST_SNIPPETS = [
+  'supabase.co',
+  'googleusercontent.com',
+  'sndcdn.com',
+  'scdn.co',
+  'cdninstagram.com',
+  'fbcdn.net',
+];
+
+const shouldProxyStreamUrl = (sourceUrl: string) => {
+  if (!sourceUrl.startsWith('http')) return false;
+
+  try {
+    const parsed = new URL(sourceUrl, window.location.href);
+    if (parsed.origin === window.location.origin) return false;
+    if (sourceUrl.includes('/functions/v1/music-indexer?audio=')) return false;
+
+    return !DIRECT_PLAYABLE_HOST_SNIPPETS.some((host) => parsed.hostname.endsWith(host));
+  } catch {
+    return false;
+  }
+};
+
 const buildStreamProxyUrl = (sourceUrl: string) => {
   const projectUrl = import.meta.env.VITE_SUPABASE_URL;
-  if (!projectUrl || !sourceUrl.startsWith('http')) return sourceUrl;
-  if (sourceUrl.includes('/functions/v1/music-indexer?audio=')) return sourceUrl;
-
+  if (!projectUrl || !shouldProxyStreamUrl(sourceUrl)) return sourceUrl;
   return `${projectUrl}/functions/v1/music-indexer?audio=${encodeURIComponent(sourceUrl)}`;
 };
 
@@ -340,6 +361,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const song = songQueue[index];
     if (!song || !audioRef.current) return;
 
+    if (!isPlayableUrl(song.audio_url)) {
+      try {
+        const resolved = await resolveAudioUrl(song);
+        if (!resolved) {
+          toast.error('This song is still preparing. Try again in a second.');
+          setIsPlaying(false);
+          return;
+        }
+
+        songQueue[index] = { ...song, audio_url: resolved };
+      } catch {
+        setIsPlaying(false);
+        toast.error('This song could not be prepared for playback.');
+        return;
+      }
+    }
+
     // Cancel any ongoing crossfade
     if (crossfadeIntervalRef.current) {
       clearInterval(crossfadeIntervalRef.current);
@@ -503,7 +541,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     isCrossfading.current = true;
 
     // Prepare next audio
-    configureAudioElementSource(nextAudioRef.current, nextSong.audio_url);
+    if (!isPlayableUrl(nextSong.audio_url)) {
+      isCrossfading.current = false;
+      return;
+    }
+
+    configureAudioElementSource(nextAudioRef.current, buildStreamProxyUrl(nextSong.audio_url));
     nextAudioRef.current.volume = 0;
     nextAudioRef.current.currentTime = 0;
     
@@ -556,7 +599,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }, stepDuration);
   }, [queue, currentIndex, shuffle, repeat, crossfadeDuration, volume, getNextIndex]);
 
-  const playActualSong = useCallback((song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
+  const playActualSong = useCallback(async (song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
     if (!audioRef.current) return;
 
     // Cancel any ongoing crossfade
@@ -571,8 +614,27 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setProgress(0);
     setIsPlaying(true);
     
+    let playbackSource = offlineUrl || song.audio_url;
+
+    if (!offlineUrl && !isPlayableUrl(playbackSource)) {
+      const resolved = await resolveAudioUrl(song);
+      if (!resolved) {
+        setIsPlaying(false);
+        toast.error('This song could not start right now.');
+        return;
+      }
+
+      playbackSource = resolved;
+      song = { ...song, audio_url: resolved };
+      setCurrentSong(song);
+    }
+
+    const normalizedQueue = songsQueue?.map((queuedSong) =>
+      queuedSong.id === song.id ? { ...queuedSong, audio_url: playbackSource } : queuedSong,
+    );
+
     // Set audio source - use offline URL if available
-    const playbackUrl = offlineUrl || buildStreamProxyUrl(song.audio_url);
+    const playbackUrl = offlineUrl || buildStreamProxyUrl(playbackSource);
     configureAudioElementSource(audioRef.current, playbackUrl);
     audioRef.current.volume = volume;
     audioRef.current.currentTime = 0;
@@ -589,9 +651,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // If a queue is provided, use it
-    if (songsQueue && songsQueue.length > 0) {
-      setQueueState(songsQueue);
-      const songIndex = songsQueue.findIndex(s => s.id === song.id);
+    if (normalizedQueue && normalizedQueue.length > 0) {
+      setQueueState(normalizedQueue);
+      const songIndex = normalizedQueue.findIndex(s => s.id === song.id);
       setCurrentIndex(songIndex >= 0 ? songIndex : 0);
     } else {
       // Update queue - add song if not exists
@@ -613,7 +675,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }).then(() => {});
       }
     }).catch(() => {});
-  }, [volume, queue]);
+  }, [isPlayableUrl, queue, resolveAudioUrl, volume]);
 
   // Check premium status from database
   const checkPremiumStatus = useCallback(async () => {

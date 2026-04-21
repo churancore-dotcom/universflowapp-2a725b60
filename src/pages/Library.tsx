@@ -16,6 +16,9 @@ import { TabTransition } from '@/components/PageTransition';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LibrarySkeleton, LibraryArtistsSkeleton } from '@/components/PageSkeletons';
 import { loadLibrarySongs } from '@/lib/streamSongs';
+import { getUserArtistPrefs, unfollowArtist } from '@/lib/userArtistPrefs';
+import { Heart as HeartIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 const formatBytes = (bytes: number) => {
   if (bytes === 0) return '0 B';
@@ -32,7 +35,7 @@ const Library = () => {
   const { downloads, removeSong, getDownloadedUrl, totalStorageUsed, clearAllDownloads } = useDownloads();
   const [likedSongs, setLikedSongs] = useState<Song[]>([]);
   const [playlists, setPlaylists] = useState<any[]>([]);
-  const [artists, setArtists] = useState<{ id?: string; name: string; songCount: number; photoUrl: string | null }[]>([]);
+  const [artists, setArtists] = useState<{ id?: string; name: string; songCount: number; photoUrl: string | null; isFollowed?: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('liked');
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
@@ -51,26 +54,41 @@ const Library = () => {
   const fetchLibrary = async () => {
     if (!user) return;
 
-    const [likedSongsData, userPlaylists, artistsData] = await Promise.all([
+    const [likedSongsData, userPlaylists, followedArtists] = await Promise.all([
       loadLibrarySongs(user.id),
       supabase
         .from('playlists')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false }),
-      supabase
-        .from('artists')
-        .select('id, name, photo_url')
-        .order('name')
-        .limit(50),
+      getUserArtistPrefs(user.id, true),
     ]);
 
     setLikedSongs(likedSongsData);
-
     if (userPlaylists.data) setPlaylists(userPlaylists.data);
-    if (artistsData.data) setArtists(artistsData.data.map(a => ({ id: a.id, name: a.name, songCount: 0, photoUrl: a.photo_url })));
+
+    // Show user's followed artists in the Artists tab
+    setArtists(
+      followedArtists.map(a => ({
+        name: a.artist_name,
+        songCount: 0,
+        photoUrl: a.artist_image,
+        isFollowed: true,
+      }))
+    );
 
     setLoading(false);
+  };
+
+  const handleUnfollowArtist = async (name: string) => {
+    if (!user) return;
+    const ok = await unfollowArtist(user.id, name);
+    if (ok) {
+      setArtists(prev => prev.filter(a => a.name !== name));
+      toast.success(`Unfollowed ${name}`);
+    } else {
+      toast.error('Could not unfollow');
+    }
   };
 
   const handlePlaySong = (song: Song) => {

@@ -15,6 +15,7 @@ import DownloadButton from '@/components/DownloadButton';
 import { TabTransition } from '@/components/PageTransition';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LibrarySkeleton, LibraryArtistsSkeleton } from '@/components/PageSkeletons';
+import { loadLibrarySongs } from '@/lib/streamSongs';
 
 const formatBytes = (bytes: number) => {
   if (bytes === 0) return '0 B';
@@ -50,13 +51,8 @@ const Library = () => {
   const fetchLibrary = async () => {
     if (!user) return;
 
-    const [liked, userPlaylists, artistsData] = await Promise.all([
-      supabase
-        .from('user_library')
-        .select('*, songs(*, artists(id, name, photo_url))')
-        .eq('user_id', user.id)
-        .order('added_at', { ascending: false })
-        .limit(100),
+    const [likedSongsData, userPlaylists, artistsData] = await Promise.all([
+      loadLibrarySongs(user.id),
       supabase
         .from('playlists')
         .select('*')
@@ -69,18 +65,7 @@ const Library = () => {
         .limit(50),
     ]);
 
-    if (liked.data) {
-      setLikedSongs(liked.data.map(l => ({
-        id: l.songs.id,
-        title: l.songs.title,
-        artist: l.songs.artist,
-        album: l.songs.album || undefined,
-        cover_url: l.songs.cover_url || undefined,
-        audio_url: l.songs.audio_url,
-        artist_id: (l.songs as any)?.artists?.id || l.songs.artist_id || undefined,
-        artist_photo_url: (l.songs as any)?.artists?.photo_url || undefined,
-      })));
-    }
+    setLikedSongs(likedSongsData);
 
     if (userPlaylists.data) setPlaylists(userPlaylists.data);
     if (artistsData.data) setArtists(artistsData.data.map(a => ({ id: a.id, name: a.name, songCount: 0, photoUrl: a.photo_url })));

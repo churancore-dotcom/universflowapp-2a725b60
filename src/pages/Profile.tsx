@@ -115,7 +115,7 @@ const Profile = () => {
   };
 
   const displayName = profileData.username || user?.email?.split('@')[0] || 'User';
-  const canChangeUsername = !profileData.username_changed;
+  const canChangeUsername = true; // Users can change anytime now
 
   return (
     <TabTransition>
@@ -213,8 +213,8 @@ const Profile = () => {
                   <Mail className="w-3 h-3" />
                   {user?.email}
                 </p>
-                {!canChangeUsername && !isEditingUsername && (
-                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">Username can only be changed once</p>
+                {!isEditingUsername && profileData.username && (
+                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">Tap pencil to change name</p>
                 )}
                 {isAdmin && (
                   <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: 'hsl(211 100% 50% / 0.2)', color: 'hsl(211 100% 60%)' }}>

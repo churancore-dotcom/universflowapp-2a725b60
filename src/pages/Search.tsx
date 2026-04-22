@@ -106,6 +106,11 @@ const Search = () => {
     }
   }, [searchParams]);
 
+  // Refresh history snapshot whenever the currently playing song changes
+  useEffect(() => {
+    if (currentSong) setSearchHistory(getSongHistory());
+  }, [currentSong?.id]);
+
   useEffect(() => {
     const trimmedQuery = query.trim();
 

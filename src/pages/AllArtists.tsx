@@ -1,12 +1,18 @@
-import { useState, useEffect, useCallback, memo, useMemo } from 'react';
+import { useState, useEffect, useCallback, memo, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Music, Loader2, Radio, Heart, Search as SearchIcon, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
-import { searchIndexedTracks, resolveIndexedTrack, type IndexedTrack } from '@/lib/musicIndexer';
-import { getFeaturedIndexedArtists } from '@/lib/indexedArtists';
+import {
+  searchIndexedTracks,
+  resolveIndexedTrack,
+  searchArtistDirectory,
+  getTopArtistsByTag,
+  enrichArtistImages,
+  type IndexedTrack,
+} from '@/lib/musicIndexer';
 import { followArtist, unfollowArtist, getUserArtistPrefs } from '@/lib/userArtistPrefs';
 import { CURATED_ARTISTS, ARTIST_CATEGORIES, type ArtistCategory } from '@/lib/curatedArtists';
 import BottomNav from '@/components/BottomNav';
@@ -81,25 +87,45 @@ const AllArtists = () => {
   const [followed, setFollowed] = useState<Set<string>>(new Set());
   const [activeCategory, setActiveCategory] = useState<'All' | ArtistCategory>('All');
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [searchingArtists, setSearchingArtists] = useState(false);
   const [artistSongs, setArtistSongs] = useState<IndexedTrack[]>([]);
   const [selectedArtist, setSelectedArtist] = useState<ArtistEntry | null>(null);
   const [loadingSongs, setLoadingSongs] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const enrichmentTriggered = useRef<Set<string>>(new Set());
+
+  // Tags used to fetch *real* artist directories from Last.fm with Deezer PFPs.
+  // Each category maps to one or more Last.fm tags so we get rich, themed lists.
+  const CATEGORY_TAGS: Record<ArtistCategory, string[]> = useMemo(() => ({
+    Trending: ['pop', 'hip-hop'],
+    Indian: ['indian', 'bollywood'],
+    Bollywood: ['bollywood', 'hindi'],
+    Punjabi: ['punjabi', 'desi'],
+    'Global Pop': ['pop'],
+    'Hip-Hop': ['hip-hop', 'rap'],
+    Rock: ['rock', 'alternative'],
+    'K-Pop': ['k-pop'],
+    Latin: ['latin', 'reggaeton'],
+    Electronic: ['electronic', 'edm'],
+    'R&B': ['rnb', 'soul'],
+    Indie: ['indie', 'indie pop'],
+  }), []);
 
   // Initial load: catalog artists + curated list + trending live artists + user follows
   useEffect(() => {
     const load = async () => {
       try {
         const [catalogRes, trendingRes, prefs] = await Promise.all([
-          supabase.from('artists').select('id, name, photo_url, genre').limit(100),
-          getFeaturedIndexedArtists(20).catch(() => []),
+          supabase.from('artists').select('id, name, photo_url, genre').limit(200),
+          getTopArtistsByTag('pop', 40).catch(() => []),
           user ? getUserArtistPrefs(user.id).catch(() => []) : Promise.resolve([]),
         ]);
 
         const map = new Map<string, ArtistEntry>();
 
-        // 1) Catalog artists (highest priority — real images)
+        // 1) Catalog artists (highest priority — admin-uploaded images)
         for (const a of catalogRes.data || []) {
           map.set(a.name.toLowerCase(), {
             name: a.name,
@@ -110,7 +136,7 @@ const AllArtists = () => {
           });
         }
 
-        // 2) Curated artists by category
+        // 2) Curated artists (well-known names by category)
         for (const c of CURATED_ARTISTS) {
           const key = c.name.toLowerCase();
           if (!map.has(key)) {
@@ -118,7 +144,7 @@ const AllArtists = () => {
           }
         }
 
-        // 3) Enrich with images from trending Last.fm data
+        // 3) Live trending artists with real PFPs
         for (const t of trendingRes) {
           const key = t.name.toLowerCase();
           const existing = map.get(key);
@@ -136,8 +162,18 @@ const AllArtists = () => {
           }
         }
 
-        setAllArtists(Array.from(map.values()));
+        const initial = Array.from(map.values());
+        setAllArtists(initial);
         setFollowed(new Set(prefs.map(p => p.artist_name.toLowerCase())));
+
+        // Background-fill missing PFPs (Deezer) for the curated list — async, no blocking
+        const missing = initial.filter(a => !a.image_url).map(a => a.name);
+        if (missing.length) {
+          enrichArtistImages(missing).then((images) => {
+            if (!Object.keys(images).length) return;
+            setAllArtists((prev) => prev.map((a) => images[a.name] ? { ...a, image_url: images[a.name] } : a));
+          }).catch(() => {});
+        }
       } catch (e) {
         console.error('Failed to load artists:', e);
       } finally {
@@ -146,6 +182,75 @@ const AllArtists = () => {
     };
     load();
   }, [user]);
+
+  // Lazy-load tag-based artists when user picks a category (so list keeps growing)
+  useEffect(() => {
+    if (activeCategory === 'All' || enrichmentTriggered.current.has(activeCategory)) return;
+    enrichmentTriggered.current.add(activeCategory);
+    const tags = CATEGORY_TAGS[activeCategory] || [];
+    if (!tags.length) return;
+    Promise.all(tags.map((tag) => getTopArtistsByTag(tag, 40).catch(() => [])))
+      .then((buckets) => {
+        const incoming = buckets.flat();
+        if (!incoming.length) return;
+        setAllArtists((prev) => {
+          const map = new Map(prev.map((a) => [a.name.toLowerCase(), a]));
+          for (const t of incoming) {
+            const key = t.name.toLowerCase();
+            const existing = map.get(key);
+            if (existing) {
+              if (!existing.image_url && t.image_url) existing.image_url = t.image_url;
+              if (t.listeners && !existing.listeners) existing.listeners = t.listeners;
+            } else {
+              map.set(key, {
+                name: t.name,
+                image_url: t.image_url,
+                listeners: t.listeners,
+                category: activeCategory,
+                source: 'lastfm',
+              });
+            }
+          }
+          return Array.from(map.values());
+        });
+      });
+  }, [activeCategory, CATEGORY_TAGS]);
+
+  // Debounce query
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => clearTimeout(id);
+  }, [query]);
+
+  // When user types a search, also pull live artist matches (so unlimited artists)
+  useEffect(() => {
+    if (!debouncedQuery || debouncedQuery.length < 2) return;
+    setSearchingArtists(true);
+    searchArtistDirectory(debouncedQuery, 30)
+      .then((found) => {
+        if (!found.length) return;
+        setAllArtists((prev) => {
+          const map = new Map(prev.map((a) => [a.name.toLowerCase(), a]));
+          for (const f of found) {
+            const key = f.name.toLowerCase();
+            const existing = map.get(key);
+            if (existing) {
+              if (!existing.image_url && f.image_url) existing.image_url = f.image_url;
+            } else {
+              map.set(key, {
+                name: f.name,
+                image_url: f.image_url,
+                listeners: f.listeners,
+                category: 'Search',
+                source: 'lastfm',
+              });
+            }
+          }
+          return Array.from(map.values());
+        });
+      })
+      .finally(() => setSearchingArtists(false));
+  }, [debouncedQuery]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

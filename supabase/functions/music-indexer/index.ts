@@ -328,6 +328,185 @@ async function searchLastFm(query: string, limit = 24) {
   return results;
 }
 
+// ── Artist-aware smart search (YouTube-style) ──
+// When the user types an artist name, prepend that artist's top tracks so they
+// see the artist's songs first instead of arbitrary track matches.
+
+async function getArtistTopTracks(artist: string, limit = 20): Promise<IndexedTrack[]> {
+  const ck = `artist-top:${artist.toLowerCase()}:${limit}`;
+  const c = getCached<IndexedTrack[]>(ck);
+  if (c) return c;
+  try {
+    const d = await fetchJson(buildLastFmUrl('artist.getTopTracks', {
+      artist, limit: String(limit), autocorrect: '1',
+    }));
+    const raw = d?.toptracks?.track;
+    const matches: LastFmTrack[] = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    const enriched = await Promise.all(matches.slice(0, limit).map(async (t) => {
+      const info = t.name ? await getTrackInfo(getArtistName(t.artist) || artist, t.name) : null;
+      const mapped = mapTrack({ ...t, artist: t.artist || artist }, info);
+      return mapped ? hydrateTrackArtwork(mapped) : null;
+    }));
+    const results = uniqueTracks(enriched);
+    setCached(ck, results, 30 * 60 * 1000);
+    return results;
+  } catch {
+    setCached(ck, [], 5 * 60 * 1000);
+    return [];
+  }
+}
+
+async function findMatchingArtist(query: string): Promise<string | null> {
+  const ck = `artist-match:${query.toLowerCase()}`;
+  const c = getCached<string | null>(ck);
+  if (c !== null) return c || null;
+  try {
+    const d = await fetchJson(buildLastFmUrl('artist.search', { artist: query, limit: '3' }));
+    const raw = d?.results?.artistmatches?.artist;
+    const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    const top = list[0];
+    const topName: string = top?.name || '';
+    const topListeners = Number(top?.listeners || 0);
+    // Treat as artist query when name closely matches and has reasonable popularity
+    const normalizedQuery = normalizeText(query);
+    const normalizedTop = normalizeText(topName);
+    const isMatch = normalizedTop &&
+      (normalizedTop === normalizedQuery ||
+       normalizedTop.includes(normalizedQuery) ||
+       normalizedQuery.includes(normalizedTop)) &&
+      topListeners > 5000;
+    const result = isMatch ? topName : null;
+    setCached(ck, result || '', 60 * 60 * 1000);
+    return result;
+  } catch {
+    setCached(ck, '', 5 * 60 * 1000);
+    return null;
+  }
+}
+
+async function smartSearch(query: string, limit = 30): Promise<IndexedTrack[]> {
+  const ck = `smart-search:${query.toLowerCase()}:${limit}`;
+  const c = getCached<IndexedTrack[]>(ck);
+  if (c) return c;
+
+  // Run artist detection + track search in parallel
+  const [artistName, trackResults] = await Promise.all([
+    findMatchingArtist(query),
+    searchLastFm(query, limit),
+  ]);
+
+  let merged: IndexedTrack[] = trackResults;
+
+  if (artistName) {
+    const artistTracks = await getArtistTopTracks(artistName, Math.min(limit, 20));
+    if (artistTracks.length) {
+      // Prepend artist's top tracks, dedupe against general search results
+      const seen = new Set<string>();
+      const out: IndexedTrack[] = [];
+      for (const t of [...artistTracks, ...trackResults]) {
+        const key = `${normalizeText(t.artist)}::${normalizeText(t.title)}`;
+        if (!seen.has(key)) { seen.add(key); out.push(t); }
+      }
+      merged = out;
+    }
+  }
+
+  const results = merged.slice(0, limit);
+  setCached(ck, results, 5 * 60 * 1000);
+  return results;
+}
+
+// ── Artist directory (with real PFPs from Deezer) ──
+
+type IndexedArtistInfo = {
+  name: string;
+  image_url?: string;
+  listeners?: number;
+};
+
+async function getDeezerArtistImage(name: string): Promise<string | undefined> {
+  const ck = `deezer-artist:${name.toLowerCase()}`;
+  const cached = getCached<string | null>(ck);
+  if (cached !== null) return cached || undefined;
+  try {
+    const url = new URL('https://api.deezer.com/search/artist');
+    url.searchParams.set('q', name);
+    url.searchParams.set('limit', '3');
+    const data = await fetchJson(url.toString(), 5000);
+    const list = Array.isArray(data?.data) ? data.data : [];
+    // Prefer exact name match
+    const wantedKey = normalizeText(name);
+    const match = list.find((a: any) => normalizeText(String(a?.name || '')) === wantedKey) || list[0];
+    const image = match?.picture_xl || match?.picture_big || match?.picture_medium || '';
+    setCached(ck, image || null, 24 * 60 * 60 * 1000);
+    return image || undefined;
+  } catch {
+    setCached(ck, null, 30 * 60 * 1000);
+    return undefined;
+  }
+}
+
+async function searchArtistDirectory(query: string, limit = 40): Promise<IndexedArtistInfo[]> {
+  const ck = `artist-dir:${query.toLowerCase()}:${limit}`;
+  const c = getCached<IndexedArtistInfo[]>(ck);
+  if (c) return c;
+  try {
+    const d = await fetchJson(buildLastFmUrl('artist.search', { artist: query, limit: String(limit) }));
+    const raw = d?.results?.artistmatches?.artist;
+    const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    const enriched = await Promise.all(list.slice(0, limit).map(async (a: any) => {
+      const name = String(a?.name || '').trim();
+      if (!name) return null;
+      const image = sanitizeArtwork(getExtralargeImage(a?.image)) || await getDeezerArtistImage(name);
+      return {
+        name,
+        image_url: image,
+        listeners: Number(a?.listeners || 0) || undefined,
+      } as IndexedArtistInfo;
+    }));
+    const results = enriched.filter((x): x is IndexedArtistInfo => Boolean(x));
+    setCached(ck, results, 10 * 60 * 1000);
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+async function getTopArtistsByTag(tag: string, limit = 30): Promise<IndexedArtistInfo[]> {
+  const ck = `top-artists:${tag}:${limit}`;
+  const c = getCached<IndexedArtistInfo[]>(ck);
+  if (c) return c;
+  try {
+    const d = await fetchJson(buildLastFmUrl('tag.gettopartists', { tag, limit: String(limit) }));
+    const raw = d?.topartists?.artist;
+    const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    const enriched = await Promise.all(list.slice(0, limit).map(async (a: any) => {
+      const name = String(a?.name || '').trim();
+      if (!name) return null;
+      const image = sanitizeArtwork(getExtralargeImage(a?.image)) || await getDeezerArtistImage(name);
+      return {
+        name,
+        image_url: image,
+        listeners: Number(a?.listeners || 0) || undefined,
+      } as IndexedArtistInfo;
+    }));
+    const results = enriched.filter((x): x is IndexedArtistInfo => Boolean(x));
+    setCached(ck, results, 30 * 60 * 1000);
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+async function enrichArtistImages(names: string[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  await Promise.all(names.map(async (name) => {
+    const img = await getDeezerArtistImage(name);
+    if (img) out[name] = img;
+  }));
+  return out;
+}
+
 // Rotating discovery tags so Top 30 keeps refreshing
 const DISCOVERY_TAGS = [
   'pop', 'hip-hop', 'rock', 'electronic', 'r&b', 'indie',
@@ -745,13 +924,70 @@ serve(async (req) => {
         });
       }
       try {
-        const results = await searchLastFm(query, limit);
+        const results = await smartSearch(query, limit);
         return new Response(JSON.stringify({ success: true, results }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       } catch (error) {
         console.error('music-indexer search error:', error);
         return new Response(JSON.stringify({ success: true, results: [], error: 'Search is temporarily unavailable' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    if (action === 'search-artists') {
+      const query = typeof body.query === 'string' ? body.query.trim() : '';
+      const limit = Math.max(1, Math.min(60, typeof body.limit === 'number' ? body.limit : 30));
+      if (query.length < 2) {
+        return new Response(JSON.stringify({ success: false, error: 'Query must be at least 2 characters' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      try {
+        const results = await searchArtistDirectory(query, limit);
+        return new Response(JSON.stringify({ success: true, results }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        console.error('music-indexer search-artists error:', error);
+        return new Response(JSON.stringify({ success: true, results: [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    if (action === 'top-artists') {
+      const tag = typeof body.tag === 'string' && body.tag.trim() ? body.tag.trim() : 'pop';
+      const limit = Math.max(1, Math.min(60, typeof body.limit === 'number' ? body.limit : 40));
+      try {
+        const results = await getTopArtistsByTag(tag, limit);
+        return new Response(JSON.stringify({ success: true, results }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        console.error('music-indexer top-artists error:', error);
+        return new Response(JSON.stringify({ success: true, results: [] }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    if (action === 'enrich-artist-images') {
+      const names = Array.isArray(body.names) ? body.names.filter((n: unknown): n is string => typeof n === 'string').slice(0, 60) : [];
+      if (!names.length) {
+        return new Response(JSON.stringify({ success: true, results: {} }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      try {
+        const results = await enrichArtistImages(names);
+        return new Response(JSON.stringify({ success: true, results }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (error) {
+        console.error('music-indexer enrich-artist-images error:', error);
+        return new Response(JSON.stringify({ success: true, results: {} }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }

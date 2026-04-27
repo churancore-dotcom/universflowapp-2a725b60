@@ -27,68 +27,78 @@ const formatBytes = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
 
+type LibraryArtist = { id?: string; name: string; songCount: number; photoUrl: string | null; isFollowed?: boolean };
+
+const fetchLibraryData = async (userId: string) => {
+  const [likedSongsData, userPlaylists, followedArtists] = await Promise.all([
+    loadLibrarySongs(userId),
+    supabase
+      .from('playlists')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
+    getUserArtistPrefs(userId, true),
+  ]);
+
+  return {
+    likedSongs: likedSongsData,
+    playlists: userPlaylists.data || [],
+    artists: followedArtists.map(a => ({
+      name: a.artist_name,
+      songCount: 0,
+      photoUrl: a.artist_image,
+      isFollowed: true,
+    })) as LibraryArtist[],
+  };
+};
+
 const Library = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { playSong, currentSong } = usePlayer();
   const { downloads, removeSong, getDownloadedUrl, totalStorageUsed, clearAllDownloads } = useDownloads();
-  const [likedSongs, setLikedSongs] = useState<Song[]>([]);
-  const [playlists, setPlaylists] = useState<any[]>([]);
-  const [artists, setArtists] = useState<{ id?: string; name: string; songCount: number; photoUrl: string | null; isFollowed?: boolean }[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('liked');
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
 
-  useEffect(() => {
-    if (user) fetchLibrary();
+  const libraryQueryKey = ['library', user?.id] as const;
+  const { data, isLoading } = useQuery({
+    queryKey: libraryQueryKey,
+    queryFn: () => fetchLibraryData(user!.id),
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
 
-    // Re-fetch when tab becomes visible (catches like changes from other pages)
+  const likedSongs = data?.likedSongs || [];
+  const playlists = data?.playlists || [];
+  const artists = data?.artists || [];
+  const loading = isLoading && !data;
+
+  // Refresh on tab visibility (catches like changes from other pages) — uses cache if fresh
+  useEffect(() => {
     const onVisibility = () => {
-      if (document.visibilityState === 'visible' && user) fetchLibrary();
+      if (document.visibilityState === 'visible' && user) {
+        queryClient.invalidateQueries({ queryKey: libraryQueryKey });
+      }
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [user]);
-
-  const fetchLibrary = async () => {
-    if (!user) return;
-
-    const [likedSongsData, userPlaylists, followedArtists] = await Promise.all([
-      loadLibrarySongs(user.id),
-      supabase
-        .from('playlists')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false }),
-      getUserArtistPrefs(user.id, true),
-    ]);
-
-    setLikedSongs(likedSongsData);
-    if (userPlaylists.data) setPlaylists(userPlaylists.data);
-
-    // Show user's followed artists in the Artists tab
-    setArtists(
-      followedArtists.map(a => ({
-        name: a.artist_name,
-        songCount: 0,
-        photoUrl: a.artist_image,
-        isFollowed: true,
-      }))
-    );
-
-    setLoading(false);
-  };
+  }, [user, queryClient]);
 
   const handleUnfollowArtist = async (name: string) => {
     if (!user) return;
     const ok = await unfollowArtist(user.id, name);
     if (ok) {
-      setArtists(prev => prev.filter(a => a.name !== name));
+      queryClient.setQueryData(libraryQueryKey, (prev: any) =>
+        prev ? { ...prev, artists: prev.artists.filter((a: LibraryArtist) => a.name !== name) } : prev,
+      );
       toast.success(`Unfollowed ${name}`);
     } else {
       toast.error('Could not unfollow');
     }
   };
+
 
   const handlePlaySong = (song: Song) => {
     const offlineUrl = getDownloadedUrl(song.id);

@@ -102,7 +102,6 @@ const GlobalTopTracksSection = () => {
           <Radio className="w-4 h-4 text-primary" />
           <h2 className="text-sm font-bold text-foreground">Global Top 30</h2>
         </div>
-        <span className="text-[11px] text-muted-foreground">Updated live</span>
       </div>
 
       <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1">
@@ -133,10 +132,6 @@ const GlobalTopTracksSection = () => {
                   </div>
                 )}
 
-                <div className="absolute left-2 top-2 rounded-full border border-border/60 bg-background/85 px-2 py-0.5 text-[10px] font-semibold text-foreground">
-                  #{track.rank || index + 1}
-                </div>
-
                 {(isResolving || (isActive && isPlaying)) && (
                   <div className="absolute bottom-2 right-2 rounded-full border border-border/60 bg-background/85 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                     {isResolving ? '...' : '▶'}
@@ -150,7 +145,7 @@ const GlobalTopTracksSection = () => {
               <p className="mt-1 truncate text-[11px] text-muted-foreground">{track.artist}</p>
               <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">
                 {isResolving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Radio className="w-3 h-3" />}
-                <span>{track.listeners ? `${Math.round(track.listeners / 1000)}k listeners` : 'Tap to stream'}</span>
+                <span>{isResolving ? 'Loading…' : 'Tap to stream'}</span>
               </div>
             </button>
           );

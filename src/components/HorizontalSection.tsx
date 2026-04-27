@@ -37,9 +37,6 @@ const HorizontalSection = memo(({ title, subtitle, children, onSeeAll, songs }: 
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {songs && songs.length > 0 && (
-              <DownloadAllButton songs={songs} />
-            )}
             {onSeeAll && (
               <button
                 className="flex items-center gap-0.5 text-[12px] text-primary font-bold active:opacity-60 transition-opacity min-h-[44px] px-2"

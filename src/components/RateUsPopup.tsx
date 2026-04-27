@@ -5,7 +5,9 @@ import { triggerHaptic } from '@/hooks/useHaptics';
 
 const STORAGE_KEY = 'uf_rate_popup_last';
 const REVIEWED_KEY = 'uf_reviewed';
-const ONE_DAY = 24 * 60 * 60 * 1000;
+const SESSION_COUNT_KEY = 'uf_session_count';
+const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+const MIN_SESSIONS = 5;
 
 interface Props {
   onOpenReview: () => void;
@@ -15,10 +17,18 @@ const RateUsPopup = ({ onOpenReview }: Props) => {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
+    // Increment session count once per app load
+    const sessions = Number(localStorage.getItem(SESSION_COUNT_KEY) || 0) + 1;
+    localStorage.setItem(SESSION_COUNT_KEY, String(sessions));
+
     if (localStorage.getItem(REVIEWED_KEY)) return;
+    if (sessions < MIN_SESSIONS) return;
+
     const last = Number(localStorage.getItem(STORAGE_KEY) || 0);
-    if (Date.now() - last < ONE_DAY) return;
-    const t = setTimeout(() => setShow(true), 4000);
+    if (Date.now() - last < ONE_WEEK) return;
+
+    // Wait until user has actually engaged with the app
+    const t = setTimeout(() => setShow(true), 30000);
     return () => clearTimeout(t);
   }, []);
 

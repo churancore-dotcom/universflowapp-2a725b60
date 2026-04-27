@@ -250,11 +250,13 @@ const Library = () => {
                 { value: 'playlists', icon: ListMusic, label: 'Lists' },
               ].map((tab) => {
                 const Icon = tab.icon;
+                const disabled = isOffline && tab.value !== 'downloads';
                 return (
                   <TabsTrigger
                     key={tab.value}
                     value={tab.value}
-                    className="h-full rounded-lg gap-1 text-[10px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary flex flex-col items-center justify-center py-0.5 transition-all"
+                    disabled={disabled}
+                    className={`h-full rounded-lg gap-1 text-[10px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary flex flex-col items-center justify-center py-0.5 transition-all ${disabled ? 'opacity-30 pointer-events-none' : ''}`}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     <span>{tab.label}</span>

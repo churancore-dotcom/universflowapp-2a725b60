@@ -427,7 +427,7 @@ const Library = () => {
         </main>
 
         <BottomNav />
-        {showCreatePlaylist && <CreatePlaylistModal isOpen={showCreatePlaylist} onClose={() => setShowCreatePlaylist(false)} onCreated={fetchLibrary} />}
+        {showCreatePlaylist && <CreatePlaylistModal isOpen={showCreatePlaylist} onClose={() => setShowCreatePlaylist(false)} onCreated={() => queryClient.invalidateQueries({ queryKey: libraryQueryKey })} />}
       </div>
     </TabTransition>
   );

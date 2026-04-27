@@ -382,10 +382,7 @@ const Home = () => {
 
               {/* All Songs (offline → renders ONLY downloaded tracks) */}
               {allSongs.length > 0 && (
-                <AllSongsSection
-                  songs={allSongs}
-                  title={isOffline ? 'Downloaded' : undefined}
-                />
+                <AllSongsSection songs={allSongs} />
               )}
 
             </div>

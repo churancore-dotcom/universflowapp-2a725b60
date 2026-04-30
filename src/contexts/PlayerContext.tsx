@@ -790,7 +790,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const handleTimeUpdate = () => {
       // Crossfade logic
-      if (crossfade && !isEqProcessingEnabled() && queue.length > 1 && audio.duration && !isCrossfading.current) {
+      if (crossfade && isPremiumUser && !isEqProcessingEnabled() && queue.length > 1 && audio.duration && !isCrossfading.current) {
         const timeLeft = audio.duration - audio.currentTime;
         if (timeLeft <= crossfadeDuration && timeLeft > 0) {
           startCrossfade();

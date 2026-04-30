@@ -5,6 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Sparkles, X, Wand2, Music2, Moon, Sun, Zap, Heart, Loader2 } from 'lucide-react';
 import { iosSpring } from '@/lib/animations';
 import { toast } from 'sonner';
+import { usePremium } from '@/hooks/usePremium';
+import PremiumLockOverlay from './PremiumLockOverlay';
 
 interface AIPlaylistGeneratorProps {
   isOpen: boolean;
@@ -67,10 +69,23 @@ const moodOptions: MoodOption[] = [
 
 const AIPlaylistGenerator = memo(({ isOpen, onClose, onPlaylistCreated }: AIPlaylistGeneratorProps) => {
   const { user } = useAuth();
+  const { isPremium, isLoading: premiumLoading } = usePremium();
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState('');
+
+  if (isOpen && !premiumLoading && !isPremium) {
+    return (
+      <AnimatePresence>
+        <PremiumLockOverlay
+          title="AI Playlist Generator"
+          description="Create mood-matched playlists in seconds. Available with Premium."
+          onClose={onClose}
+        />
+      </AnimatePresence>
+    );
+  }
 
   const generatePlaylist = async () => {
     if (!user || (!selectedMood && !customPrompt.trim())) {

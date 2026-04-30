@@ -251,18 +251,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    let serviceAccount: FirebaseServiceAccount;
-    try {
-      serviceAccount = parseFirebaseServiceAccount(FIREBASE_SERVICE_ACCOUNT);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Firebase credentials are invalid.";
-      console.error("Invalid FIREBASE_SERVICE_ACCOUNT", message);
-      return new Response(
-        JSON.stringify({ error: message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
     // Verify caller is admin
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) {
@@ -360,6 +348,18 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ success: true, sent: 0, message: "No registered devices for audience" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    let serviceAccount: FirebaseServiceAccount;
+    try {
+      serviceAccount = parseFirebaseServiceAccount(FIREBASE_SERVICE_ACCOUNT);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Firebase credentials are invalid.";
+      console.error("Invalid FIREBASE_SERVICE_ACCOUNT", message);
+      return new Response(
+        JSON.stringify({ error: message, setup_required: true }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 

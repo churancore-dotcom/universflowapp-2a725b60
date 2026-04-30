@@ -1315,6 +1315,8 @@ export type Database = {
         Returns: string
       }
       redeem_promo_code: { Args: { p_code: string }; Returns: Json }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

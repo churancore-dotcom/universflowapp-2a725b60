@@ -18,6 +18,112 @@ interface SendPushBody {
   image_url?: string;
 }
 
+interface FirebaseServiceAccount {
+  project_id: string;
+  client_email: string;
+  private_key: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function tryJsonParse(value: string): unknown | null {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function escapeNewlinesInsideJsonStrings(value: string): string {
+  let output = "";
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+
+    if (escaped) {
+      output += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      output += char;
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      output += char;
+      continue;
+    }
+
+    if (inString && (char === "\n" || char === "\r")) {
+      if (char === "\r" && value[i + 1] === "\n") i++;
+      output += "\\n";
+      continue;
+    }
+
+    output += char;
+  }
+
+  return output;
+}
+
+function tryBase64Decode(value: string): string | null {
+  try {
+    const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+    return atob(padded);
+  } catch {
+    return null;
+  }
+}
+
+function parseFirebaseServiceAccount(raw: string): FirebaseServiceAccount {
+  const trimmed = raw.trim().replace(/^\uFEFF/, "");
+  const candidates = [
+    trimmed,
+    escapeNewlinesInsideJsonStrings(trimmed),
+  ];
+
+  const decoded = tryBase64Decode(trimmed);
+  if (decoded) {
+    candidates.push(decoded.trim(), escapeNewlinesInsideJsonStrings(decoded.trim()));
+  }
+
+  let parsed: unknown = null;
+  for (const candidate of candidates) {
+    parsed = tryJsonParse(candidate);
+    if (typeof parsed === "string") {
+      parsed = tryJsonParse(parsed.trim()) ?? tryJsonParse(escapeNewlinesInsideJsonStrings(parsed.trim()));
+    }
+    if (isRecord(parsed)) break;
+  }
+
+  if (!isRecord(parsed)) {
+    throw new Error("Firebase credentials are misformatted. Paste the complete service account JSON object, not a shortened value.");
+  }
+
+  const projectId = parsed.project_id;
+  const clientEmail = parsed.client_email;
+  const privateKey = parsed.private_key;
+
+  if (typeof projectId !== "string" || typeof clientEmail !== "string" || typeof privateKey !== "string") {
+    throw new Error("Firebase credentials are missing project_id, client_email, or private_key.");
+  }
+
+  return {
+    project_id: projectId,
+    client_email: clientEmail,
+    private_key: privateKey.replace(/\\n/g, "\n").trim(),
+  };
+}
+
 // ---- JWT signing for Google OAuth2 (service account) ----
 function base64url(input: ArrayBuffer | Uint8Array | string): string {
   let bytes: Uint8Array;
@@ -105,12 +211,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    let serviceAccount: any;
+    let serviceAccount: FirebaseServiceAccount;
     try {
-      serviceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
-    } catch {
+      serviceAccount = parseFirebaseServiceAccount(FIREBASE_SERVICE_ACCOUNT);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Firebase credentials are invalid.";
+      console.error("Invalid FIREBASE_SERVICE_ACCOUNT", message);
       return new Response(
-        JSON.stringify({ error: "FIREBASE_SERVICE_ACCOUNT is not valid JSON" }),
+        JSON.stringify({ error: message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

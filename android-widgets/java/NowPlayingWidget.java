@@ -41,17 +41,18 @@ public class NowPlayingWidget extends AppWidgetProvider {
         views.setImageViewResource(R.id.widget_btn_play_pause, 
             isPlaying ? R.drawable.ic_pause : R.drawable.ic_play);
         
-        // Play/Pause - launches app with action
-        views.setOnClickPendingIntent(R.id.widget_btn_play_pause, 
-            createActionIntent(context, "WIDGET_PLAY_PAUSE", 0));
-        
+        // Play/Pause - sent directly to MediaNotificationService (foreground media service)
+        views.setOnClickPendingIntent(R.id.widget_btn_play_pause,
+            createMediaServiceIntent(context,
+                isPlaying ? "uf.media.PAUSE" : "uf.media.PLAY", 0));
+
         // Next
-        views.setOnClickPendingIntent(R.id.widget_btn_next, 
-            createActionIntent(context, "WIDGET_NEXT", 1));
-        
+        views.setOnClickPendingIntent(R.id.widget_btn_next,
+            createMediaServiceIntent(context, "uf.media.NEXT", 1));
+
         // Previous
-        views.setOnClickPendingIntent(R.id.widget_btn_previous, 
-            createActionIntent(context, "WIDGET_PREVIOUS", 2));
+        views.setOnClickPendingIntent(R.id.widget_btn_previous,
+            createMediaServiceIntent(context, "uf.media.PREV", 2));
         
         // Open app on album art / song info click
         Intent openAppIntent = new Intent(context, BridgeActivity.class);

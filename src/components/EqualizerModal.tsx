@@ -6,6 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { iosSpring } from '@/lib/animations';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { toast } from 'sonner';
+import { usePremium } from '@/hooks/usePremium';
+import PremiumLockOverlay from './PremiumLockOverlay';
 
 interface EqualizerModalProps {
   isOpen: boolean;
@@ -281,6 +283,7 @@ function initEQGraph(audioElement: HTMLAudioElement): boolean {
 
 const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const { audioElement, currentSong } = usePlayer();
+  const { isPremium, isLoading: premiumLoading } = usePremium();
 
   const saved = loadSettings();
   const [bands, setBands] = useState<EQBand[]>(

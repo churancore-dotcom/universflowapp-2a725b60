@@ -130,10 +130,44 @@ const Home = () => {
 
   const loading = isLoading && songs.length === 0 && !isOffline;
 
-  const newReleases = useMemo(
-    () => songs.filter((s: any) => s.show_in_new_releases).slice(0, 10),
-    [songs],
-  );
+  // External "real" New Releases — pulled from live Last.fm/Deezer charts (not user uploads)
+  const { data: externalNewReleases = [] } = useQuery({
+    queryKey: ['home', 'external-new-releases'],
+    queryFn: async () => {
+      const tracks = await getTopIndexedTracks(12);
+      return tracks.map((t): Song => ({
+        id: t.id,
+        title: t.title,
+        artist: t.artist,
+        album: t.album,
+        cover_url: t.cover_url,
+        audio_url: 'resolving',
+        duration: t.duration,
+        source: 'indexed',
+      }));
+    },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    enabled: !isOffline,
+  });
+
+  const [resolvingExtId, setResolvingExtId] = useState<string | null>(null);
+  const { playSong } = usePlayer();
+  const handlePlayExternal = useCallback(async (track: Song, queue: Song[]) => {
+    setResolvingExtId(track.id);
+    try {
+      const r = await resolveIndexedTrack(track.artist, track.title);
+      if (!r.streamUrl) throw new Error('Stream unavailable');
+      const resolved: Song = { ...track, audio_url: r.streamUrl, cover_url: r.cover_url || track.cover_url, duration: r.duration || track.duration };
+      const resolvedQueue = queue.map((q) => q.id === track.id ? resolved : q);
+      playSong(resolved, undefined, resolvedQueue);
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not play track');
+    } finally {
+      setResolvingExtId(null);
+    }
+  }, [playSong]);
+
   const allSongs = useMemo(() => songs, [songs]);
 
   // Realtime: DIFF-based cache patch — only mutate the affected row instead of refetching

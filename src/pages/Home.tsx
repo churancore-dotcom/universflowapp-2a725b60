@@ -19,10 +19,12 @@ import LockScreenPlayer from '@/components/LockScreenPlayer';
 import EqualizerModal from '@/components/EqualizerModal';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
-import { Music, Lock, ListMusic, Sliders, Headphones } from 'lucide-react';
+import { Music, Lock, ListMusic, Sliders, Headphones, Loader2 } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import appLogo from '@/assets/app-logo.png';
 import { HomeSkeleton } from '@/components/PageSkeletons';
+import { getTopIndexedTracks, resolveIndexedTrack } from '@/lib/musicIndexer';
+import { toast } from 'sonner';
 
 // Simple empty state
 const EmptyState = memo(() => (
@@ -86,7 +88,7 @@ const fetchHomeSongs = async (): Promise<Song[]> => {
 };
 
 const Home = () => {
-  const { currentSong } = usePlayer();
+  const { currentSong, playSong } = usePlayer();
   const { cachedSongs, updateCache } = useSongCache();
   const { isOffline } = useAuth();
   const { downloads } = useDownloads();
@@ -128,10 +130,43 @@ const Home = () => {
 
   const loading = isLoading && songs.length === 0 && !isOffline;
 
-  const newReleases = useMemo(
-    () => songs.filter((s: any) => s.show_in_new_releases).slice(0, 10),
-    [songs],
-  );
+  // External "real" New Releases — pulled from live Last.fm/Deezer charts (not user uploads)
+  const { data: externalNewReleases = [] } = useQuery({
+    queryKey: ['home', 'external-new-releases'],
+    queryFn: async () => {
+      const tracks = await getTopIndexedTracks(12);
+      return tracks.map((t): Song => ({
+        id: t.id,
+        title: t.title,
+        artist: t.artist,
+        album: t.album,
+        cover_url: t.cover_url,
+        audio_url: 'resolving',
+        duration: t.duration,
+        source: 'indexed',
+      }));
+    },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    enabled: !isOffline,
+  });
+
+  const [resolvingExtId, setResolvingExtId] = useState<string | null>(null);
+  const handlePlayExternal = useCallback(async (track: Song, queue: Song[]) => {
+    setResolvingExtId(track.id);
+    try {
+      const r = await resolveIndexedTrack(track.artist, track.title);
+      if (!r.streamUrl) throw new Error('Stream unavailable');
+      const resolved: Song = { ...track, audio_url: r.streamUrl, cover_url: r.cover_url || track.cover_url, duration: r.duration || track.duration };
+      const resolvedQueue = queue.map((q) => q.id === track.id ? resolved : q);
+      playSong(resolved, undefined, resolvedQueue);
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not play track');
+    } finally {
+      setResolvingExtId(null);
+    }
+  }, [playSong]);
+
   const allSongs = useMemo(() => songs, [songs]);
 
   // Realtime: DIFF-based cache patch — only mutate the affected row instead of refetching
@@ -366,11 +401,39 @@ const Home = () => {
                   {/* Global Top Tracks */}
                   <GlobalTopTracksSection />
 
-                  {/* New Releases */}
-                  {newReleases.length > 0 && (
-                    <HorizontalSection title="New Releases" subtitle="Fresh tracks just dropped" songs={newReleases}>
-                      {newReleases.map((song, i) => (
-                        <SongCard key={song.id} song={song} index={i} sectionSongs={newReleases} />
+                  {/* New Releases — REAL external charts (Last.fm/Deezer), not user uploads */}
+                  {externalNewReleases.length > 0 && (
+                    <HorizontalSection title="New Releases" subtitle="Fresh from global charts" songs={externalNewReleases}>
+                      {externalNewReleases.map((song, i) => (
+                        <motion.button
+                          key={song.id}
+                          onClick={() => { triggerHaptic('selection'); handlePlayExternal(song, externalNewReleases); }}
+                          className="flex-shrink-0 w-[140px] snap-start text-left"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.04, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                          whileTap={{ scale: 0.96 }}
+                        >
+                          <div
+                            className="relative w-[140px] h-[140px] rounded-2xl overflow-hidden mb-2 bg-muted"
+                            style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.35)', border: '0.5px solid rgba(255,255,255,0.08)' }}
+                          >
+                            {song.cover_url ? (
+                              <img src={song.cover_url} alt="" className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                                <Music className="w-7 h-7 text-muted-foreground" />
+                              </div>
+                            )}
+                            {resolvingExtId === song.id && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                                <Loader2 className="w-5 h-5 text-white animate-spin" />
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-[13px] font-bold truncate text-foreground leading-tight">{song.title}</p>
+                          <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5">{song.artist}</p>
+                        </motion.button>
                       ))}
                     </HorizontalSection>
                   )}

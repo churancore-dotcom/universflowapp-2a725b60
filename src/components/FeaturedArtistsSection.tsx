@@ -146,6 +146,10 @@ const FeaturedArtistsSection = () => {
               index={i}
               onClick={() => {
                 triggerHaptic('selection');
+                // Auto-follow on first tap so the artist sticks in "Your Artists"
+                if (user) {
+                  void followArtist(user.id, artist.name, { image: artist.image, source: 'lastfm' });
+                }
                 navigate(`/artists?focus=${encodeURIComponent(artist.name)}`);
               }}
             />

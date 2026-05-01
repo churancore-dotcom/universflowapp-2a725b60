@@ -723,4 +723,159 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
   );
 });
 
+// ─────────── Live verification UI ───────────
+
+interface LiveVerificationProps {
+  stage: 0 | 1 | 2 | 3 | 4;
+  activated: boolean;
+  amount: string;
+  utr: string;
+  onClose: () => void;
+}
+
+const LiveVerification = memo(function LiveVerification({
+  stage, activated, amount, utr, onClose,
+}: LiveVerificationProps) {
+  const navigate = useNavigate();
+
+  const stages = [
+    { label: 'Payment received', detail: `UTR ${utr.slice(0, 6)}…` },
+    { label: 'Verifying transaction', detail: 'Checking with payment gateway' },
+    { label: 'Matching unique amount', detail: `₹${amount}` },
+    { label: 'Activating Premium', detail: 'Almost there' },
+  ];
+
+  if (activated) {
+    return (
+      <div className="text-center py-4">
+        <motion.div
+          initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} transition={iosBounce}
+          className="w-24 h-24 mx-auto mb-5 rounded-full flex items-center justify-center"
+          style={{
+            background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))',
+            boxShadow: '0 20px 50px -10px hsl(var(--primary) / 0.6)',
+          }}
+        >
+          <Crown className="w-12 h-12 text-primary-foreground" fill="currentColor" />
+        </motion.div>
+        <motion.h3
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+          className="text-[26px] font-bold mb-2"
+        >
+          You're Premium 🎉
+        </motion.h3>
+        <motion.p
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}
+          className="text-[14px] text-muted-foreground mb-6 px-4"
+        >
+          Your payment was matched and Premium is now live. A confirmation has been sent to your device.
+        </motion.p>
+        <button
+          onClick={() => { onClose(); navigate('/premium'); }}
+          className="w-full py-4 rounded-2xl font-bold text-[16px]"
+          style={{
+            background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))',
+            color: 'hsl(var(--primary-foreground))',
+          }}
+        >
+          Start listening
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="py-2">
+      <div className="text-center mb-6">
+        <motion.div
+          animate={{ scale: [1, 1.08, 1] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+          className="w-16 h-16 mx-auto mb-3 rounded-2xl flex items-center justify-center relative"
+          style={{ background: 'hsl(var(--primary) / 0.15)' }}
+        >
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        </motion.div>
+        <h3 className="text-[20px] font-bold">Verifying your payment</h3>
+        <p className="text-[12.5px] text-muted-foreground mt-1">
+          This usually takes under a minute. Keep this open.
+        </p>
+      </div>
+
+      <div className="space-y-2 mb-5">
+        {stages.map((s, idx) => {
+          const done = stage > idx;
+          const active = stage === idx + 1;
+          return (
+            <motion.div
+              key={s.label}
+              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: idx * 0.08 }}
+              className="flex items-center gap-3 p-3 rounded-xl"
+              style={{
+                background: active
+                  ? 'hsl(var(--primary) / 0.1)'
+                  : done
+                  ? 'hsl(var(--primary) / 0.06)'
+                  : 'hsl(var(--muted) / 0.3)',
+                border: `0.5px solid ${active ? 'hsl(var(--primary) / 0.4)' : 'hsl(var(--border) / 0.4)'}`,
+              }}
+            >
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                style={{
+                  background: done
+                    ? 'hsl(var(--primary))'
+                    : active
+                    ? 'hsl(var(--primary) / 0.25)'
+                    : 'hsl(var(--muted) / 0.6)',
+                }}
+              >
+                {done ? (
+                  <Check className="w-4 h-4 text-primary-foreground" strokeWidth={3} />
+                ) : active ? (
+                  <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+                ) : (
+                  <span className="text-[10px] text-muted-foreground font-bold">{idx + 1}</span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className={`text-[14px] font-semibold ${done || active ? '' : 'text-muted-foreground'}`}>
+                  {s.label}
+                </p>
+                <p className="text-[11px] text-muted-foreground truncate">{s.detail}</p>
+              </div>
+              {active && (
+                <motion.div
+                  className="w-1.5 h-1.5 rounded-full bg-primary"
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 1.2, repeat: Infinity }}
+                />
+              )}
+            </motion.div>
+          );
+        })}
+      </div>
+
+      <div
+        className="rounded-2xl p-3 mb-4 text-[12px] leading-relaxed flex items-start gap-2"
+        style={{ background: 'hsl(var(--primary) / 0.08)', border: '0.5px solid hsl(var(--primary) / 0.2)' }}
+      >
+        <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+        <p className="text-foreground/80">
+          <strong className="text-primary">Live status:</strong> We're matching your UTR with our bank records.
+          You'll get a push notification the moment Premium activates — usually within 1–2 minutes.
+        </p>
+      </div>
+
+      <button
+        onClick={onClose}
+        className="w-full py-3.5 rounded-2xl font-semibold text-[14px]"
+        style={{ background: 'hsl(var(--muted) / 0.5)' }}
+      >
+        Continue in background
+      </button>
+    </div>
+  );
+});
+
 export default PremiumPage;

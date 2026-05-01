@@ -780,26 +780,20 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
 
 // ─────────── Live verification UI ───────────
 
-interface LiveVerificationProps {
-  stage: 0 | 1 | 2 | 3 | 4;
+interface SubmittedConfirmationProps {
   activated: boolean;
   amount: string;
   utr: string;
   onClose: () => void;
 }
 
-const LiveVerification = memo(function LiveVerification({
-  stage, activated, amount, utr, onClose,
-}: LiveVerificationProps) {
-  const navigate = useNavigate();
-
-  const stages = [
-    { label: 'Payment received', detail: `UTR ${utr.slice(0, 6)}…` },
-    { label: 'Verifying transaction', detail: 'Checking with payment gateway' },
-    { label: 'Matching unique amount', detail: `₹${amount}` },
-    { label: 'Activating Premium', detail: 'Almost there' },
-  ];
-
+/**
+ * Sheet confirmation shown right after the user submits a UTR.
+ * Closes the sheet and lets the page-level PendingProgressBanner take over.
+ */
+const SubmittedConfirmation = memo(function SubmittedConfirmation({
+  activated, amount, utr, onClose,
+}: SubmittedConfirmationProps) {
   if (activated) {
     return (
       <div className="text-center py-4">
@@ -813,20 +807,12 @@ const LiveVerification = memo(function LiveVerification({
         >
           <Crown className="w-12 h-12 text-primary-foreground" fill="currentColor" />
         </motion.div>
-        <motion.h3
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-          className="text-[26px] font-bold mb-2"
-        >
-          You're Premium 🎉
-        </motion.h3>
-        <motion.p
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}
-          className="text-[14px] text-muted-foreground mb-6 px-4"
-        >
-          Your payment was matched and Premium is now live. A confirmation has been sent to your device.
-        </motion.p>
+        <h3 className="text-[26px] font-bold mb-2">You're Premium 🎉</h3>
+        <p className="text-[14px] text-muted-foreground mb-6 px-4">
+          Premium is now live on your account. Enjoy the upgrade.
+        </p>
         <button
-          onClick={() => { onClose(); navigate('/premium'); }}
+          onClick={onClose}
           className="w-full py-4 rounded-2xl font-bold text-[16px]"
           style={{
             background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))',
@@ -840,38 +826,127 @@ const LiveVerification = memo(function LiveVerification({
   }
 
   return (
-    <div className="py-2">
-      <div className="text-center mb-6">
+    <div className="text-center py-4">
+      <motion.div
+        initial={{ scale: 0 }} animate={{ scale: 1 }} transition={iosBounce}
+        className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center"
+        style={{
+          background: 'linear-gradient(135deg, hsl(var(--primary) / 0.25), hsl(var(--accent) / 0.18))',
+          border: '1px solid hsl(var(--primary) / 0.4)',
+        }}
+      >
+        <Check className="w-10 h-10 text-primary" strokeWidth={3} />
+      </motion.div>
+      <h3 className="text-[22px] font-bold mb-2">Got it — payment received</h3>
+      <p className="text-[13.5px] text-muted-foreground mb-1 px-2 leading-relaxed">
+        We've recorded your UTR <strong className="text-foreground">{utr.slice(0, 6)}…</strong> for ₹{amount}.
+      </p>
+      <p className="text-[13px] text-muted-foreground mb-6 px-4 leading-relaxed">
+        Verification is now running in the background. You can watch live progress on the Premium page —
+        and we'll send a push the moment Premium activates.
+      </p>
+      <button
+        onClick={onClose}
+        className="w-full py-4 rounded-2xl font-bold text-[16px]"
+        style={{
+          background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))',
+          color: 'hsl(var(--primary-foreground))',
+        }}
+      >
+        See live progress
+      </button>
+    </div>
+  );
+});
+
+// ─────────── Pending progress banner (shown on /premium when a UTR is awaiting verification) ───────────
+
+interface PendingProgressBannerProps {
+  pending: PendingPayment;
+}
+
+const PendingProgressBanner = memo(function PendingProgressBanner({ pending }: PendingProgressBannerProps) {
+  // Animated stage advancement to feel "live" — caps at stage 3 (last step is activation)
+  const [stage, setStage] = useState<1 | 2 | 3>(1);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const start = new Date(pending.created_at).getTime();
+    const tick = () => {
+      const seconds = Math.floor((Date.now() - start) / 1000);
+      setElapsed(seconds);
+      if (seconds < 20) setStage(1);
+      else if (seconds < 60) setStage(2);
+      else setStage(3);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [pending.created_at]);
+
+  const amountInr = (pending.amount_paise / 100).toFixed(2);
+  const planLabel = pending.plan === 'quarterly' ? '3 Months' : '1 Month';
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+
+  const steps = [
+    { label: 'Payment received', detail: `UTR ${pending.utr_number.slice(0, 6)}…` },
+    { label: 'Verifying with bank', detail: `Matching ₹${amountInr}` },
+    { label: 'Activating your Premium', detail: 'Almost there — stay close' },
+  ];
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={iosSpring}
+      className="rounded-3xl p-6 relative overflow-hidden"
+      style={{
+        background: 'linear-gradient(160deg, hsl(var(--primary) / 0.22) 0%, hsl(var(--card)) 60%, hsl(var(--accent) / 0.18) 100%)',
+        border: '1px solid hsl(var(--primary) / 0.4)',
+        boxShadow: '0 20px 60px -20px hsl(var(--primary) / 0.45)',
+      }}
+    >
+      <div
+        className="absolute -top-16 -right-16 w-40 h-40 rounded-full opacity-50 pointer-events-none"
+        style={{ background: 'radial-gradient(circle, hsl(var(--primary) / 0.5), transparent 70%)', filter: 'blur(30px)' }}
+      />
+
+      <div className="flex items-center gap-3 mb-1 relative">
         <motion.div
           animate={{ scale: [1, 1.08, 1] }}
           transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-          className="w-16 h-16 mx-auto mb-3 rounded-2xl flex items-center justify-center relative"
-          style={{ background: 'hsl(var(--primary) / 0.15)' }}
+          className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+          style={{ background: 'hsl(var(--primary) / 0.2)' }}
         >
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <Loader2 className="w-5 h-5 text-primary animate-spin" />
         </motion.div>
-        <h3 className="text-[20px] font-bold">Verifying your payment</h3>
-        <p className="text-[12.5px] text-muted-foreground mt-1">
-          This usually takes under a minute. Keep this open.
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold tracking-[0.22em] text-primary uppercase">
+            You're so close
+          </p>
+          <h2 className="text-[20px] font-bold leading-tight">Activating Premium · {planLabel}</h2>
+        </div>
       </div>
 
-      <div className="space-y-2 mb-5">
-        {stages.map((s, idx) => {
-          const done = stage > idx;
-          const active = stage === idx + 1;
+      <p className="text-[13px] text-muted-foreground mb-5 relative">
+        Your payment of <strong className="text-foreground">₹{amountInr}</strong> is being matched with our bank records.
+        This usually takes <strong className="text-foreground">1–2 minutes</strong>.
+      </p>
+
+      <div className="space-y-2 mb-4 relative">
+        {steps.map((s, idx) => {
+          const done = stage > (idx + 1) as any;
+          const active = stage === (idx + 1);
+          const pendingStep = !done && !active;
           return (
-            <motion.div
+            <div
               key={s.label}
-              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: idx * 0.08 }}
-              className="flex items-center gap-3 p-3 rounded-xl"
+              className="flex items-center gap-3 p-3 rounded-2xl"
               style={{
                 background: active
-                  ? 'hsl(var(--primary) / 0.1)'
+                  ? 'hsl(var(--primary) / 0.12)'
                   : done
                   ? 'hsl(var(--primary) / 0.06)'
-                  : 'hsl(var(--muted) / 0.3)',
+                  : 'hsl(var(--muted) / 0.25)',
                 border: `0.5px solid ${active ? 'hsl(var(--primary) / 0.4)' : 'hsl(var(--border) / 0.4)'}`,
               }}
             >
@@ -894,7 +969,7 @@ const LiveVerification = memo(function LiveVerification({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className={`text-[14px] font-semibold ${done || active ? '' : 'text-muted-foreground'}`}>
+                <p className={`text-[14px] font-semibold ${pendingStep ? 'text-muted-foreground' : ''}`}>
                   {s.label}
                 </p>
                 <p className="text-[11px] text-muted-foreground truncate">{s.detail}</p>
@@ -906,30 +981,22 @@ const LiveVerification = memo(function LiveVerification({
                   transition={{ duration: 1.2, repeat: Infinity }}
                 />
               )}
-            </motion.div>
+            </div>
           );
         })}
       </div>
 
       <div
-        className="rounded-2xl p-3 mb-4 text-[12px] leading-relaxed flex items-start gap-2"
-        style={{ background: 'hsl(var(--primary) / 0.08)', border: '0.5px solid hsl(var(--primary) / 0.2)' }}
+        className="rounded-2xl p-3 flex items-center gap-2 relative"
+        style={{ background: 'hsl(var(--background) / 0.5)', border: '0.5px solid hsl(var(--border) / 0.5)' }}
       >
-        <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-        <p className="text-foreground/80">
-          <strong className="text-primary">Live status:</strong> We're matching your UTR with our bank records.
-          You'll get a push notification the moment Premium activates — usually within 1–2 minutes.
+        <Clock className="w-4 h-4 text-primary shrink-0" />
+        <p className="text-[12px] text-foreground/80 flex-1">
+          Waiting <strong className="text-foreground">{mins > 0 ? `${mins}m ` : ''}{secs}s</strong> · You'll get a push notification the instant it's live.
         </p>
+        <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
       </div>
-
-      <button
-        onClick={onClose}
-        className="w-full py-3.5 rounded-2xl font-semibold text-[14px]"
-        style={{ background: 'hsl(var(--muted) / 0.5)' }}
-      >
-        Continue in background
-      </button>
-    </div>
+    </motion.section>
   );
 });
 

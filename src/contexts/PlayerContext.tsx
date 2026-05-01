@@ -406,6 +406,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       audio.removeEventListener('waiting', handleWaiting);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
+      if (appResumeRemove) appResumeRemove();
       if (keepAliveRef.current) clearInterval(keepAliveRef.current);
       audio.pause();
       audio.src = '';

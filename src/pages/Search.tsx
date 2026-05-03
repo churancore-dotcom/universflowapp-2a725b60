@@ -241,27 +241,17 @@ const Search = () => {
                             <button
                               className="flex items-center gap-3 flex-1 min-w-0 text-left"
                               onClick={async () => {
-                                // Re-resolve indexed songs (audio_url may have expired)
                                 if (entry.source === 'indexed' || entry.source === 'audius') {
-                                  setResolvingId(entry.id);
-                                  try {
-                                    const r = await resolveIndexedTrack(entry.artist, entry.title);
-                                    if (!r.streamUrl) throw new Error('Could not resolve');
-                                    playSong({
-                                      id: entry.id,
-                                      title: r.title || entry.title,
-                                      artist: r.artist || entry.artist,
-                                      album: entry.album,
-                                      cover_url: r.cover_url || entry.cover_url,
-                                      audio_url: r.streamUrl,
-                                      duration: r.duration || entry.duration,
-                                      source: 'indexed',
-                                    });
-                                  } catch (err) {
-                                    toast.error('Could not play this song');
-                                  } finally {
-                                    setResolvingId(null);
-                                  }
+                                  playSong({
+                                    id: entry.id,
+                                    title: entry.title,
+                                    artist: entry.artist,
+                                    album: entry.album,
+                                    cover_url: entry.cover_url,
+                                    audio_url: entry.audio_url || 'resolving',
+                                    duration: entry.duration,
+                                    source: 'indexed',
+                                  });
                                 } else if (entry.audio_url) {
                                   playSong({
                                     id: entry.id,

@@ -245,29 +245,21 @@ export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
     async (payload: PlaybackStatePayload | null | undefined) => {
       if (!payload?.song?.audio_url) return;
 
-      // For non-library sources (YouTube/Audius/indexed streams), the host's
-      // resolved URL may be short-lived or instance-specific. Mark it as
-      // 'resolving' so the guest's player re-resolves a fresh stream URL via
-      // the music indexer (resolveAudioUrl in PlayerContext).
       const hostSource = payload.song.source;
-      const isStreamSource =
-        !!hostSource && hostSource !== 'library' && hostSource !== 'upload';
 
       const remoteSong: Song = {
         id: payload.song.id,
         title: payload.song.title,
         artist: payload.song.artist,
         cover_url: payload.song.cover_url,
-        audio_url: isStreamSource ? 'resolving' : payload.song.audio_url,
+        audio_url: payload.song.audio_url,
         duration: payload.song.duration,
         source: (hostSource as any) || 'indexed',
       };
 
       const sameSong =
         currentSong?.id === remoteSong.id &&
-        // Treat as same song even if local URL is the resolved one
-        (currentSong?.audio_url === remoteSong.audio_url ||
-          (isStreamSource && !!currentSong?.audio_url));
+        currentSong?.audio_url === remoteSong.audio_url;
       const remotePosition = Number(payload.playbackPosition) || 0;
       const localPosition = audioElement?.currentTime ?? progress;
 

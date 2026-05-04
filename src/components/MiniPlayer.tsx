@@ -4,6 +4,7 @@ import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 // to prevent flicker on route changes. Do not re-mount it inside individual pages.
 import { Play, Pause, SkipForward, X } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
+import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { isLockscreenOpen, subscribeLockscreen } from '@/lib/lockscreenState';
 

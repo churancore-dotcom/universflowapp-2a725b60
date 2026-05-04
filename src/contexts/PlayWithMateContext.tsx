@@ -258,7 +258,7 @@ export const PlayWithMateProvider = ({ children }: { children: ReactNode }) => {
         currentSong?.id === remoteSong.id &&
         currentSong?.audio_url === remoteSong.audio_url;
       const remotePosition = Number(payload.playbackPosition) || 0;
-      const localPosition = audioElement?.currentTime ?? progress;
+      const localPosition = audioElement?.currentTime ?? playerProgressStore.getProgress();
 
       applyingRemoteStateRef.current = true;
 

@@ -51,8 +51,6 @@ export interface Song {
 interface PlayerContextType {
   currentSong: Song | null;
   isPlaying: boolean;
-  progress: number;
-  duration: number;
   volume: number;
   queue: Song[];
   shuffle: boolean;

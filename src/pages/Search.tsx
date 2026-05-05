@@ -40,7 +40,6 @@ const Search = () => {
     const trimmedQuery = query.trim();
 
     if (trimmedQuery.length < 2) {
-      setResults([]);
       setIndexedResults([]);
       return;
     }
@@ -49,15 +48,11 @@ const Search = () => {
     const timer = setTimeout(async () => {
       setSearching(true);
 
-      const [libraryResponse, indexedResponse] = await Promise.allSettled([
-        Promise.resolve([] as Song[]),
-        searchIndexedTracks(trimmedQuery, 50),
-      ]);
+      const indexedResponse = await Promise.resolve(searchIndexedTracks(trimmedQuery, 50));
 
       if (cancelled) return;
 
-      setResults(libraryResponse.status === 'fulfilled' ? libraryResponse.value : []);
-      setIndexedResults(indexedResponse.status === 'fulfilled' ? indexedResponse.value : []);
+      setIndexedResults(indexedResponse);
       setSearching(false);
       setSearchHistory(getSongHistory().filter(entry => !isCatalogSongId(entry.id)));
     }, 300);
@@ -74,28 +69,7 @@ const Search = () => {
     });
   }, [indexedResults]);
 
-  const searchSongs = async (searchTerm: string): Promise<Song[]> => {
-    const safeSearchTerm = searchTerm.replace(/[%,]/g, ' ').trim();
-    if (!safeSearchTerm) return [];
-
-    // 1h cache — saves a round-trip on identical or repeated queries
-    const cached = getCached<Song[]>('library_search', safeSearchTerm);
-    if (cached) return cached;
-
-    const { data } = await supabase
-      .from('songs')
-      // Slim payload: only the fields the UI actually renders
-      .select('id, title, artist, album, cover_url, audio_url, artist_id, artists(id, name, photo_url)')
-      .eq('is_visible', true)
-      .or(`title.ilike.%${safeSearchTerm}%,artist.ilike.%${safeSearchTerm}%,album.ilike.%${safeSearchTerm}%`)
-      .limit(30);
-
-    const mapped = Array.isArray(data) ? data.map(mapSongRow) : [];
-    setCached('library_search', safeSearchTerm, mapped);
-    return mapped;
-  };
-
-  const libraryResults: Song[] = source === 'indexer' ? [] : results;
+  const libraryResults: Song[] = [];
 
   const visibleIndexedResults = source === 'all' || source === 'indexer' ? indexedResults : [];
 

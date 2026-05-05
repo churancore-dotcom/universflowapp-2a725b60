@@ -11,7 +11,7 @@ import SongCard from '@/components/SongCard';
 import AllSongsSection from '@/components/AllSongsSection';
 
 import GlobalTopTracksSection from '@/components/GlobalTopTracksSection';
-import FollowedArtistsFeed from '@/components/FollowedArtistsFeed';
+import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import SleepTimerModal from '@/components/SleepTimerModal';
 import QueueDrawer from '@/components/QueueDrawer';
 import BottomNav from '@/components/BottomNav';
@@ -357,8 +357,8 @@ const Home = () => {
               {/* Online-only discovery sections — hidden when offline */}
               {!isOffline && (
                 <>
-                  {/* Newest tracks from artists the user follows */}
-                  <FollowedArtistsFeed />
+                  {/* Artist discovery */}
+                  <FeaturedArtistsSection />
 
                   {/* Global Top Tracks */}
                   <GlobalTopTracksSection />

@@ -1340,6 +1340,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_session_host: {
+        Args: { _session_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_session_member: {
+        Args: { _session_id: string; _user_id: string }
+        Returns: boolean
+      }
       join_listening_session: {
         Args: { p_session_code: string }
         Returns: string

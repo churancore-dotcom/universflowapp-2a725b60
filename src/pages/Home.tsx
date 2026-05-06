@@ -10,7 +10,6 @@ import { useDownloads } from '@/contexts/DownloadContext';
 import AllSongsSection from '@/components/AllSongsSection';
 
 import GlobalTopTracksSection from '@/components/GlobalTopTracksSection';
-import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import FollowedArtistSongsSection from '@/components/FollowedArtistSongsSection';
 import SleepTimerModal from '@/components/SleepTimerModal';
 import QueueDrawer from '@/components/QueueDrawer';
@@ -360,12 +359,10 @@ const Home = () => {
               {/* Online-only discovery sections — hidden when offline */}
               {!isOffline && (
                 <>
-                  {/* Artist discovery */}
-                  <FeaturedArtistsSection />
-
+                  {/* Personalized first: followed artist picks + vibe rail */}
                   <FollowedArtistSongsSection songs={allSongs} />
 
-                  {/* Global Top Tracks */}
+                  {/* Global chart stays directly beside the personal rails */}
                   <GlobalTopTracksSection />
                 </>
               )}

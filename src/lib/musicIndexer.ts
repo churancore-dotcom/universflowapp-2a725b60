@@ -150,8 +150,44 @@ export async function searchIndexedTracks(query: string, limit = 50): Promise<In
 // localStorage layer survives across reloads (TTL 30 minutes).
 const TOP_TRACKS_TTL = 30 * 60 * 1000;
 const TOP_TRACKS_LS_KEY = 'uf_top_tracks_v1';
-const topTracksMemCache = new Map<number, { data: IndexedTrack[]; expiresAt: number }>();
-let topTracksInflight = new Map<number, Promise<IndexedTrack[]>>();
+const topTracksMemCache = new Map<string, { data: IndexedTrack[]; expiresAt: number }>();
+let topTracksInflight = new Map<string, Promise<IndexedTrack[]>>();
+
+// Detect a 2-letter country code using browser language + timezone heuristics.
+// Cached after first compute. Falls back to '' (server uses global blend).
+let _detectedCountry: string | null = null;
+export function detectCountry(): string {
+  if (_detectedCountry !== null) return _detectedCountry;
+  let cc = '';
+  try {
+    // 1) Locale region (e.g. en-IN → IN)
+    const langs = [navigator.language, ...(navigator.languages || [])];
+    for (const lang of langs) {
+      const m = /-([A-Z]{2})\b/i.exec(lang || '');
+      if (m) { cc = m[1].toUpperCase(); break; }
+    }
+    // 2) Timezone heuristic
+    if (!cc) {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      const TZ_MAP: Record<string, string> = {
+        'Asia/Kolkata': 'IN', 'Asia/Calcutta': 'IN',
+        'Asia/Karachi': 'PK', 'Asia/Dhaka': 'BD',
+        'Asia/Tokyo': 'JP', 'Asia/Seoul': 'KR',
+        'Asia/Shanghai': 'CN', 'Asia/Singapore': 'SG',
+        'Asia/Dubai': 'AE', 'Asia/Riyadh': 'SA',
+        'Europe/London': 'GB', 'Europe/Paris': 'FR',
+        'Europe/Berlin': 'DE', 'Europe/Madrid': 'ES',
+        'Europe/Moscow': 'RU',
+        'America/New_York': 'US', 'America/Los_Angeles': 'US', 'America/Chicago': 'US',
+        'America/Toronto': 'CA', 'America/Mexico_City': 'MX', 'America/Sao_Paulo': 'BR',
+        'Australia/Sydney': 'AU',
+      };
+      cc = TZ_MAP[tz] || '';
+    }
+  } catch { /* ignore */ }
+  _detectedCountry = cc;
+  return cc;
+}
 
 (function hydrateTopTracksCache() {
   try {

@@ -13,6 +13,8 @@ import { usePlayer } from '@/contexts/PlayerContext';
 import { usePlayWithMate } from '@/contexts/PlayWithMateContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { toast } from 'sonner';
+import { usePremium } from '@/hooks/usePremium';
+import { Crown } from 'lucide-react';
 
 const QUICK_REACTIONS = ['❤️', '🔥', '😂', '🎶', '🥹', '🙌'];
 

@@ -197,7 +197,7 @@ export function detectCountry(): string {
     const now = Date.now();
     Object.entries(parsed).forEach(([k, v]) => {
       if (v?.expiresAt > now && Array.isArray(v.data)) {
-        topTracksMemCache.set(Number(k), v);
+        topTracksMemCache.set(k, v);
       }
     });
   } catch { /* ignore */ }
@@ -206,36 +206,39 @@ export function detectCountry(): string {
 function persistTopTracksCache() {
   try {
     const obj: Record<string, { data: IndexedTrack[]; expiresAt: number }> = {};
-    topTracksMemCache.forEach((v, k) => { obj[String(k)] = v; });
+    topTracksMemCache.forEach((v, k) => { obj[k] = v; });
     localStorage.setItem(TOP_TRACKS_LS_KEY, JSON.stringify(obj));
   } catch { /* ignore quota */ }
 }
 
-export async function getTopIndexedTracks(limit = 30): Promise<IndexedTrack[]> {
-  const cached = topTracksMemCache.get(limit);
+export async function getTopIndexedTracks(limit = 30, country?: string): Promise<IndexedTrack[]> {
+  const cc = (country ?? detectCountry() ?? '').toUpperCase().slice(0, 2);
+  const key = `${limit}::${cc}`;
+  const cached = topTracksMemCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data;
   }
-  const inflight = topTracksInflight.get(limit);
+  const inflight = topTracksInflight.get(key);
   if (inflight) return inflight;
 
   const promise = (async () => {
     const data = await requestIndexer<IndexedTracksResponse>({
       action: 'top',
       limit,
+      country: cc || undefined,
     });
     const results = Array.isArray(data.results) ? data.results : [];
     if (results.length > 0) {
-      topTracksMemCache.set(limit, { data: results, expiresAt: Date.now() + TOP_TRACKS_TTL });
+      topTracksMemCache.set(key, { data: results, expiresAt: Date.now() + TOP_TRACKS_TTL });
       persistTopTracksCache();
     }
     return results;
   })();
-  topTracksInflight.set(limit, promise);
+  topTracksInflight.set(key, promise);
   try {
     return await promise;
   } finally {
-    topTracksInflight.delete(limit);
+    topTracksInflight.delete(key);
   }
 }
 

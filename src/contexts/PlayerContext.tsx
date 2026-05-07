@@ -644,7 +644,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }
           },
           onError: () => {
-            toast.error('Video source unavailable — skipping');
+            console.warn('[player] yt source unavailable, skipping');
             youtubeEndCallbackRef.current?.();
           },
         },
@@ -653,7 +653,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn('YouTube fallback failed:', err);
       youtubeActiveRef.current = false;
       setIsPlaying(false);
-      toast.error('Could not load this track from any source.');
+      console.warn('[player] all sources failed');
     }
   }, [ensureYouTubeContainer, startYouTubeProgressLoop, volume]);
 
@@ -666,7 +666,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         const resolved = await resolveAudioUrl(song);
         if (!resolved) {
-          toast.error('This song is still preparing. Try again in a second.');
+          console.warn('[player] still preparing');
           setIsPlaying(false);
           return;
         }
@@ -674,7 +674,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         songQueue[index] = { ...song, audio_url: resolved };
       } catch {
         setIsPlaying(false);
-        toast.error('This song could not be prepared for playback.');
+        console.warn('[player] prep failed');
         return;
       }
     }
@@ -725,7 +725,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const videoId = getYouTubeFallbackVideoId(audioUrl);
       if (!videoId) {
         setIsPlaying(false);
-        toast.error('This song could not be played.');
+        console.warn('[player] could not play');
         return;
       }
       await playYouTubeFallback(videoId, () => {
@@ -998,7 +998,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const resolved = await resolveAudioUrl(song);
       if (!resolved) {
         setIsPlaying(false);
-        toast.error('This song could not start right now.');
+        console.warn('[player] could not start');
         return;
       }
 
@@ -1020,7 +1020,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       } else {
         setIsPlaying(false);
-        toast.error('This song could not start right now.');
+        console.warn('[player] could not start');
       }
     } else {
       teardownYouTubePlayback();
@@ -1038,7 +1038,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         playPromise.catch(err => {
           console.warn('Playback failed:', err?.message);
           setIsPlaying(false);
-          toast.error('This song could not start — trying another source helps while the stream refreshes.');
+          console.warn('[player] start failed, will retry');
         });
       }
     }

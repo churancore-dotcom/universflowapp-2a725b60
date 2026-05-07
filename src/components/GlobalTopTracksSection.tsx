@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Music2, Radio } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
-import { getTopIndexedTracks, prefetchIndexedTrack, resolveIndexedTrack, type IndexedTrack } from '@/lib/musicIndexer';
+import { detectCountry, getTopIndexedTracks, prefetchIndexedTrack, resolveIndexedTrack, type IndexedTrack } from '@/lib/musicIndexer';
+
+const REGION_LABEL: Record<string, string> = {
+  IN: 'India', US: 'USA', GB: 'UK', CA: 'Canada', AU: 'Australia',
+  PK: 'Pakistan', BD: 'Bangladesh', JP: 'Japan', KR: 'Korea',
+  CN: 'China', SG: 'Singapore', AE: 'UAE', SA: 'Saudi Arabia',
+  FR: 'France', DE: 'Germany', ES: 'Spain', RU: 'Russia',
+  MX: 'Mexico', BR: 'Brazil',
+};
 
 const GlobalTopTracksSection = () => {
   const [tracks, setTracks] = useState<IndexedTrack[]>([]);

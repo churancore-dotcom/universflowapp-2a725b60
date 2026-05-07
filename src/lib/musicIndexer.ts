@@ -313,6 +313,20 @@ export function prefetchIndexedTrack(artist: string, title: string) {
   void resolveIndexedTrack(artist, title).catch(() => null);
 }
 
+/** Wipe a cached stream URL (used when a previously-resolved URL has expired). */
+export function invalidateStreamCache(artist: string, title: string) {
+  const key = makeCacheKey(artist, title);
+  streamCache.delete(key);
+  inFlightResolutions.delete(key);
+  persistCache();
+}
+
+/** Force a fresh edge-function resolve, bypassing all caches. */
+export async function forceResolveIndexedTrack(artist: string, title: string): Promise<ResolveTrackResponse> {
+  invalidateStreamCache(artist, title);
+  return resolveIndexedTrack(artist, title);
+}
+
 // ── Artist directory (with real PFPs from Deezer) ──
 
 export interface IndexedArtistInfo {

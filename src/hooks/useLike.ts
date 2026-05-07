@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { isCatalogSongId } from '@/lib/songSupport';
 import { persistStreamSong, getTrackSource } from '@/lib/streamSongs';
 import type { Song } from '@/contexts/PlayerContext';
+
+const LIBRARY_CACHE_KEY = 'library_cache_v1';
 
 // ============================================================
 // Batch Like Cache — single query loads ALL user likes
@@ -56,6 +59,7 @@ const loadLikeCache = async (userId: string): Promise<void> => {
 
 export const useLike = (songId: string, song?: Song | null) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [isLiked, setIsLiked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const mountedRef = useRef(true);
@@ -128,6 +132,11 @@ export const useLike = (songId: string, song?: Song | null) => {
         saveStreamLikes(streamLikes);
       }
 
+      // Bust both the persisted localStorage cache and the React Query cache
+      // so Library reflects the change instantly (no zombie liked songs).
+      try { localStorage.removeItem(`${LIBRARY_CACHE_KEY}:${user.id}`); } catch { /* ignore */ }
+      queryClient.invalidateQueries({ queryKey: ['library', user.id] });
+
       toast.success(newLiked ? 'Added to favorites ❤️' : 'Removed from favorites');
     } catch (error) {
       console.error('Error toggling like:', error);
@@ -137,7 +146,7 @@ export const useLike = (songId: string, song?: Song | null) => {
     } finally {
       if (mountedRef.current) setIsLoading(false);
     }
-  }, [user, songId, song, isLiked, isLoading]);
+  }, [user, songId, song, isLiked, isLoading, queryClient]);
 
   return { isLiked, isLoading, toggleLike };
 };

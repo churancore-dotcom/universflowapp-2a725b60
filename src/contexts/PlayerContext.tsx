@@ -644,7 +644,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }
           },
           onError: () => {
-            toast.error('Video source unavailable — skipping');
+            console.warn('[player] yt source unavailable, skipping');
             youtubeEndCallbackRef.current?.();
           },
         },
@@ -653,7 +653,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.warn('YouTube fallback failed:', err);
       youtubeActiveRef.current = false;
       setIsPlaying(false);
-      toast.error('Could not load this track from any source.');
+      console.warn('[player] all sources failed');
     }
   }, [ensureYouTubeContainer, startYouTubeProgressLoop, volume]);
 
@@ -666,7 +666,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         const resolved = await resolveAudioUrl(song);
         if (!resolved) {
-          toast.error('This song is still preparing. Try again in a second.');
+          console.warn('[player] still preparing');
           setIsPlaying(false);
           return;
         }
@@ -674,7 +674,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         songQueue[index] = { ...song, audio_url: resolved };
       } catch {
         setIsPlaying(false);
-        toast.error('This song could not be prepared for playback.');
+        console.warn('[player] prep failed');
         return;
       }
     }
@@ -725,7 +725,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const videoId = getYouTubeFallbackVideoId(audioUrl);
       if (!videoId) {
         setIsPlaying(false);
-        toast.error('This song could not be played.');
+        console.warn('[player] could not play');
         return;
       }
       await playYouTubeFallback(videoId, () => {
@@ -830,19 +830,45 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     };
 
-    // ── Auto-skip on stream errors (broken/expired URLs) ──
+    // ── Auto-retry / silent skip on stream errors (broken/expired URLs) ──
     let lastErrorAt = 0;
-    const handleAudioError = () => {
-      // Debounce: avoid skip-storms if a few errors fire in a row
+    let retriedSongId: string | null = null;
+    const handleAudioError = async () => {
       const now = Date.now();
       if (now - lastErrorAt < 1500) return;
       lastErrorAt = now;
 
       const errorCode = audio.error?.code;
-      // Ignore aborts triggered by intentional source swaps / pauses
       if (errorCode === MediaError.MEDIA_ERR_ABORTED) return;
 
-      console.warn('[player] audio error, auto-skipping:', errorCode, audio.error?.message);
+      console.warn('[player] audio error', errorCode, audio.error?.message);
+
+      // For indexed/audius streams, the URL is signed and expires (~1h). Try ONE
+      // silent re-resolve before giving up. This is what kills the "could not start"
+      // toast loop when the user replays a song after a few minutes.
+      const playing = queue[currentIndex];
+      if (
+        playing &&
+        retriedSongId !== playing.id &&
+        (playing.source === 'indexed' || playing.source === 'audius')
+      ) {
+        retriedSongId = playing.id;
+        try {
+          const { forceResolveIndexedTrack } = await import('@/lib/musicIndexer');
+          const fresh = await forceResolveIndexedTrack(playing.artist, playing.title);
+          if (fresh?.streamUrl && audioRef.current) {
+            const refreshed = { ...playing, audio_url: fresh.streamUrl };
+            const newQueue = queue.slice();
+            newQueue[currentIndex] = refreshed;
+            setQueueState(newQueue);
+            setCurrentSong(refreshed);
+            configureAudioElementSource(audioRef.current, buildStreamProxyUrl(fresh.streamUrl));
+            audioRef.current.load();
+            audioRef.current.play().catch(() => { /* fall through */ });
+            return;
+          }
+        } catch { /* fall through to skip */ }
+      }
 
       if (queue.length === 0) {
         setIsPlaying(false);
@@ -854,11 +880,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (nextIdx === null && queue.length > 1) nextIdx = (currentIndex + 1) % queue.length;
 
       if (nextIdx !== null && nextIdx !== currentIndex) {
-        toast.info('Stream unavailable — playing next song');
+        // No noisy toast — Spotify just moves on.
         playSongAtIndex(nextIdx, queue);
       } else {
         setIsPlaying(false);
-        toast.error('This song could not start right now.');
       }
     };
 
@@ -973,7 +998,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const resolved = await resolveAudioUrl(song);
       if (!resolved) {
         setIsPlaying(false);
-        toast.error('This song could not start right now.');
+        console.warn('[player] could not start');
         return;
       }
 
@@ -995,7 +1020,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
       } else {
         setIsPlaying(false);
-        toast.error('This song could not start right now.');
+        console.warn('[player] could not start');
       }
     } else {
       teardownYouTubePlayback();
@@ -1013,7 +1038,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         playPromise.catch(err => {
           console.warn('Playback failed:', err?.message);
           setIsPlaying(false);
-          toast.error('This song could not start — trying another source helps while the stream refreshes.');
+          console.warn('[player] start failed, will retry');
         });
       }
     }

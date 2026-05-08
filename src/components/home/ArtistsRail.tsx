@@ -1,7 +1,7 @@
 import { memo, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { User, ChevronRight, Plus, Check } from 'lucide-react';
+import { User, ChevronRight, Plus, Check, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import {
@@ -22,21 +22,17 @@ interface DisplayArtist {
 const ArtistTile = memo(function ArtistTile({
   artist,
   index,
-  large,
   onOpen,
   onToggleFollow,
 }: {
   artist: DisplayArtist;
   index: number;
-  large?: boolean;
   onOpen: () => void;
   onToggleFollow: () => void;
 }) {
-  const size = large ? 'w-[108px]' : 'w-[96px]';
-  const img = large ? 'w-[108px] h-[108px]' : 'w-[96px] h-[96px]';
   return (
     <motion.div
-      className={`flex-shrink-0 ${size} snap-start text-center`}
+      className="flex-shrink-0 w-[88px] snap-start text-center"
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index, 8) * 0.03, duration: 0.25 }}
@@ -46,44 +42,50 @@ const ArtistTile = memo(function ArtistTile({
         onClick={() => { triggerHaptic('selection'); onOpen(); }}
         className="relative block w-full"
       >
+        {/* Rose glow ring */}
         <div
-          className={`relative ${img} mx-auto rounded-full overflow-hidden bg-muted/40`}
-          style={{ boxShadow: '0 8px 22px rgba(0,0,0,0.55)' }}
+          className="relative w-[84px] h-[84px] mx-auto rounded-full p-[2px]"
+          style={{
+            background: 'linear-gradient(135deg, #FF2D55 0%, #FF6A8B 50%, #FF2D55 100%)',
+            boxShadow: '0 0 18px rgba(255,45,85,0.45), 0 8px 22px rgba(0,0,0,0.55)',
+          }}
         >
-          {artist.image ? (
-            <img
-              src={artist.image}
-              alt={artist.name}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/25 to-accent/20">
-              <User className="w-7 h-7 text-muted-foreground" />
-            </div>
-          )}
+          <div className="w-full h-full rounded-full overflow-hidden bg-black">
+            {artist.image ? (
+              <img
+                src={artist.image}
+                alt={artist.name}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/25 to-accent/20">
+                <User className="w-7 h-7 text-white/60" />
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); triggerHaptic('impactLight'); onToggleFollow(); }}
-            className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center"
+            className="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full flex items-center justify-center"
             style={{
-              background: artist.followed ? 'hsl(var(--primary))' : 'rgba(0,0,0,0.85)',
-              border: '2px solid hsl(var(--background))',
+              background: artist.followed ? '#FF2D55' : 'rgba(0,0,0,0.9)',
+              border: '2px solid #000',
             }}
             aria-label={artist.followed ? 'Unfollow' : 'Follow'}
           >
             {artist.followed ? (
-              <Check className="w-3.5 h-3.5 text-primary-foreground" strokeWidth={3} />
+              <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
             ) : (
-              <Plus className="w-3.5 h-3.5 text-foreground" strokeWidth={3} />
+              <Plus className="w-3.5 h-3.5 text-white" strokeWidth={3} />
             )}
           </button>
         </div>
-        <p className="mt-2.5 truncate text-[12.5px] font-semibold leading-tight text-foreground px-1">
+        <p className="mt-2.5 truncate text-[13px] font-bold leading-tight text-white px-1">
           {artist.name}
         </p>
-        <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+        <p className="text-[10px] text-white/45 mt-0.5">
           {artist.followed ? 'Following' : 'Artist'}
         </p>
       </button>
@@ -119,7 +121,6 @@ const ArtistsRail = () => {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
   }, [user?.id]);
 
   const handleToggleFollow = async (name: string, image: string | null, currentlyFollowed: boolean) => {
@@ -138,22 +139,6 @@ const ArtistsRail = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <section className="space-y-3">
-        <div className="h-5 w-40 bg-muted/50 rounded animate-pulse mx-1" />
-        <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1 -mx-3 px-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="w-[96px] flex-shrink-0">
-              <div className="w-[96px] h-[96px] rounded-full bg-muted/50 animate-pulse" />
-              <div className="h-3 mt-2 mx-2 rounded bg-muted/50 animate-pulse" />
-            </div>
-          ))}
-        </div>
-      </section>
-    );
-  }
-
   const followedDisplay: DisplayArtist[] = followedPrefs.map((p) => ({
     key: p.id,
     name: p.artist_name,
@@ -161,59 +146,54 @@ const ArtistsRail = () => {
     followed: true,
   }));
 
-  return (
-    <div className="space-y-7">
-      {followedDisplay.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-[22px] font-extrabold tracking-tight">Your Artists</h2>
-            <button
-              onClick={() => { triggerHaptic('selection'); navigate('/artists'); }}
-              className="flex items-center gap-0.5 text-[12px] font-semibold text-muted-foreground"
-            >
-              See all <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-1 -mx-3 px-3 snap-x">
-            {followedDisplay.map((a, i) => (
-              <ArtistTile
-                key={a.key}
-                artist={a}
-                index={i}
-                large
-                onOpen={() => navigate(`/artists?focus=${encodeURIComponent(a.name)}`)}
-                onToggleFollow={() => handleToggleFollow(a.name, a.image, true)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+  // Followed first, then discover, deduped
+  const combined: DisplayArtist[] = [...followedDisplay, ...discover];
 
-      {discover.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-[22px] font-extrabold tracking-tight">
-              {followedDisplay.length > 0 ? 'Discover Artists' : 'Popular Artists'}
-            </h2>
-            <button
-              onClick={() => { triggerHaptic('selection'); navigate('/artists'); }}
-              className="flex items-center gap-0.5 text-[12px] font-semibold text-muted-foreground"
-            >
-              See all <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex items-center justify-between px-1 mb-3">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center"
+            style={{
+              background: 'rgba(255,45,85,0.18)',
+              border: '0.5px solid rgba(255,45,85,0.35)',
+            }}
+          >
+            <Sparkles className="w-4 h-4 text-rose-500" fill="currentColor" />
           </div>
-          <div className="flex gap-3.5 overflow-x-auto hide-scrollbar pb-1 -mx-3 px-3 snap-x">
-            {discover.map((a, i) => (
-              <ArtistTile
-                key={a.key}
-                artist={a}
-                index={i}
-                onOpen={() => navigate(`/artists?focus=${encodeURIComponent(a.name)}`)}
-                onToggleFollow={() => handleToggleFollow(a.name, a.image, false)}
-              />
-            ))}
-          </div>
-        </section>
+          <h2 className="text-[18px] font-extrabold tracking-tight text-white">Featured Artists</h2>
+        </div>
+        <button
+          onClick={() => { triggerHaptic('selection'); navigate('/artists'); }}
+          className="flex items-center gap-0.5 text-[13px] font-bold text-rose-500 active:opacity-60"
+        >
+          View All <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="w-[88px] flex-shrink-0">
+              <div className="w-[84px] h-[84px] rounded-full bg-white/5 animate-pulse mx-auto" />
+              <div className="h-3 mt-2 mx-2 rounded bg-white/5 animate-pulse" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1 snap-x" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {combined.map((a, i) => (
+            <ArtistTile
+              key={a.key}
+              artist={a}
+              index={i}
+              onOpen={() => navigate(`/artists?focus=${encodeURIComponent(a.name)}`)}
+              onToggleFollow={() => handleToggleFollow(a.name, a.image, a.followed)}
+            />
+          ))}
+        </div>
       )}
     </div>
   );

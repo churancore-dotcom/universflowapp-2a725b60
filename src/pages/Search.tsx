@@ -28,7 +28,8 @@ const isOriginalTrack = (t: { title: string; artist: string }) =>
   !SPAM_PATTERN.test(t.title || '') && !SPAM_PATTERN.test(t.artist || '');
 
 const Search = () => {
-  const [query, setQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [query, setQuery] = useState(() => searchParams.get('q') || '');
   const [indexedResults, setIndexedResults] = useState<IndexedTrack[]>([]);
   const [searching, setSearching] = useState(false);
   const [isFocused, setIsFocused] = useState(false);

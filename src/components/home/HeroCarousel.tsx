@@ -2,9 +2,10 @@ import { useEffect, useState, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play } from 'lucide-react';
 import { usePlayer, type Song } from '@/contexts/PlayerContext';
-import { getTopIndexedTracks, prefetchIndexedTrack, type IndexedTrack } from '@/lib/musicIndexer';
+import { getTopIndexedTracks, prefetchIndexedTrack, invalidateTopTracksCache, type IndexedTrack } from '@/lib/musicIndexer';
 import { getGeo, flagFor } from '@/lib/geoLocation';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Top hero carousel — auto-rotating "Cover Story" cards built from the
@@ -15,21 +16,42 @@ function HeroCarouselComponent() {
   const [slides, setSlides] = useState<IndexedTrack[]>([]);
   const [active, setActive] = useState(0);
   const [country, setCountry] = useState('');
-  const { playSong, currentSong } = usePlayer();
+  const { playSong } = usePlayer();
+
+  const loadSlides = useCallback(async (cc: string, force = false) => {
+    try {
+      if (force) invalidateTopTracksCache();
+      const res = await getTopIndexedTracks(8, cc || undefined, force ? { force: true } : undefined);
+      setSlides(res.slice(0, 5));
+    } catch {/* */}
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const g = await getGeo();
       const cc = g?.country_code || '';
-      if (!cancelled) setCountry(cc);
-      try {
-        const res = await getTopIndexedTracks(8, cc || undefined);
-        if (!cancelled) setSlides(res.slice(0, 5));
-      } catch {/* */}
+      if (cancelled) return;
+      setCountry(cc);
+      await loadSlides(cc);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [loadSlides]);
+
+  // Realtime: refresh hero whenever the viral chart updates.
+  useEffect(() => {
+    const channel = supabase
+      .channel('viral-hero-refresh')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'viral_chart_refreshes' }, (payload) => {
+        const row = (payload.new || payload.old) as any;
+        if (!row) return;
+        if (row.scope === 'global' || (row.scope === 'country' && row.country_code === country)) {
+          loadSlides(country, true);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [country, loadSlides]);
 
   // Auto-rotate every 5s
   useEffect(() => {
@@ -64,7 +86,16 @@ function HeroCarouselComponent() {
 
   return (
     <section className="relative">
-      <div className="relative h-[200px] rounded-2xl overflow-hidden">
+      <motion.div
+        className="relative h-[200px] rounded-2xl overflow-hidden touch-pan-y"
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.18}
+        onDragEnd={(_, info) => {
+          if (info.offset.x < -50) setActive((i) => (i + 1) % slides.length);
+          else if (info.offset.x > 50) setActive((i) => (i - 1 + slides.length) % slides.length);
+        }}
+      >
         <AnimatePresence mode="wait">
           {slides.map((s, i) => i === active && (
             <motion.button
@@ -77,45 +108,22 @@ function HeroCarouselComponent() {
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               className="absolute inset-0 text-left"
             >
-              {/* Background cover */}
               {s.cover_url ? (
-                <img
-                  src={s.cover_url}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover"
-                  loading="eager"
-                  referrerPolicy="no-referrer"
-                />
+                <img src={s.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="eager" referrerPolicy="no-referrer" draggable={false} />
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/40 to-accent/40" />
               )}
-              {/* Dark overlay */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    'linear-gradient(90deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0.15) 100%)',
-                }}
-              />
-              {/* Top label */}
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0.15) 100%)' }} />
               <div className="absolute top-3 left-3 flex items-center gap-1.5">
                 <span className="text-base leading-none">{flag || '🌍'}</span>
-                <span className="text-[10px] font-bold tracking-[0.18em] text-white/90 uppercase">
-                  Cover Story
-                </span>
+                <span className="text-[10px] font-bold tracking-[0.18em] text-white/90 uppercase">Cover Story</span>
               </div>
-              {/* Rank badge top-right */}
               <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-black/55 backdrop-blur-sm text-[10px] font-bold text-white">
                 #{i + 1} VIRAL
               </div>
-              {/* Title block */}
               <div className="absolute right-3 top-1/2 -translate-y-1/2 max-w-[58%] text-right">
-                <p className="text-white text-[26px] font-extrabold leading-[1.05] line-clamp-2 drop-shadow-lg">
-                  {s.title}
-                </p>
-                <p className="mt-1 text-white/80 text-[12px] font-semibold truncate">
-                  {s.artist}
-                </p>
+                <p className="text-white text-[26px] font-extrabold leading-[1.05] line-clamp-2 drop-shadow-lg">{s.title}</p>
+                <p className="mt-1 text-white/80 text-[12px] font-semibold truncate">{s.artist}</p>
                 <div className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold shadow-lg">
                   <Play className="w-3 h-3" fill="currentColor" />
                   PLAY NOW
@@ -124,7 +132,7 @@ function HeroCarouselComponent() {
             </motion.button>
           ))}
         </AnimatePresence>
-      </div>
+      </motion.div>
 
       {/* Dots */}
       <div className="flex justify-center gap-1.5 mt-2">

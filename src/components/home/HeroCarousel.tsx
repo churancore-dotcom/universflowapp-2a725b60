@@ -1,57 +1,38 @@
 import { useEffect, useState, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play } from 'lucide-react';
+import { Play, Loader2 } from 'lucide-react';
 import { usePlayer, type Song } from '@/contexts/PlayerContext';
-import { getTopIndexedTracks, prefetchIndexedTrack, invalidateTopTracksCache, type IndexedTrack } from '@/lib/musicIndexer';
-import { getGeo, flagFor } from '@/lib/geoLocation';
+import { detectCountry, getTrendingForCountry, prefetchPipedStream, resolvePipedStream, type PipedTrack } from '@/lib/pipedTrending';
+import { flagFor } from '@/lib/geoLocation';
 import { triggerHaptic } from '@/hooks/useHaptics';
-import { supabase } from '@/integrations/supabase/client';
+import { Skeleton } from '@/components/ui/skeleton';
 
 /**
- * Top hero carousel — auto-rotating "Cover Story" cards built from the
- * REAL viral chart for the user's country (no fake/static slides).
- * Inspired by T-Series / Spotify style banners.
+ * "For You" hero — auto-rotating cover-story cards from the real Piped
+ * trending feed for the user's country. Swipeable, stale-while-revalidate.
  */
 function HeroCarouselComponent() {
-  const [slides, setSlides] = useState<IndexedTrack[]>([]);
+  const [slides, setSlides] = useState<PipedTrack[]>([]);
   const [active, setActive] = useState(0);
   const [country, setCountry] = useState('');
+  const [resolving, setResolving] = useState(false);
   const { playSong } = usePlayer();
-
-  const loadSlides = useCallback(async (cc: string, force = false) => {
-    try {
-      if (force) invalidateTopTracksCache();
-      const res = await getTopIndexedTracks(8, cc || undefined, force ? { force: true } : undefined);
-      setSlides(res.slice(0, 5));
-    } catch {/* */}
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const g = await getGeo();
-      const cc = g?.country_code || '';
+      const c = await detectCountry();
       if (cancelled) return;
-      setCountry(cc);
-      await loadSlides(cc);
+      setCountry(c.cc);
+      try {
+        const fresh = await getTrendingForCountry(c.cc, {
+          onCached: (cached) => { if (!cancelled && cached.length) setSlides(cached.slice(0, 5)); },
+        });
+        if (!cancelled) setSlides(fresh.slice(0, 5));
+      } catch {/*ignore*/}
     })();
     return () => { cancelled = true; };
-  }, [loadSlides]);
-
-  // Realtime: refresh hero whenever the viral chart updates.
-  useEffect(() => {
-    const channel = supabase
-      .channel('viral-hero-refresh')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'viral_chart_refreshes' }, (payload) => {
-        const row = (payload.new || payload.old) as any;
-        if (!row) return;
-        if (row.scope === 'global' || (row.scope === 'country' && row.country_code === country)) {
-          loadSlides(country, true);
-        }
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [country, loadSlides]);
+  }, []);
 
   // Auto-rotate every 5s
   useEffect(() => {
@@ -60,26 +41,31 @@ function HeroCarouselComponent() {
     return () => clearInterval(id);
   }, [slides.length]);
 
-  // Prefetch next slide stream for instant tap-to-play
+  // Prefetch next slide stream
   useEffect(() => {
     if (!slides.length) return;
     const next = slides[(active + 1) % slides.length];
-    if (next) prefetchIndexedTrack(next.artist, next.title);
+    if (next) prefetchPipedStream(next.videoId);
   }, [active, slides]);
 
-  const handlePlay = useCallback((track: IndexedTrack) => {
+  const handlePlay = useCallback(async (track: PipedTrack) => {
     triggerHaptic('selection');
+    setResolving(true);
+    const url = await resolvePipedStream(track.videoId);
+    setResolving(false);
+    if (!url) return;
     const queue: Song[] = slides.map((t) => ({
-      id: t.id, title: t.title, artist: t.artist, album: t.album,
-      cover_url: t.cover_url, audio_url: 'resolving', duration: t.duration,
-      source: 'indexed' as const,
+      id: t.id, title: t.title, artist: t.artist,
+      cover_url: t.cover_url,
+      audio_url: t.id === track.id ? url : 'resolving',
+      duration: t.duration,
     }));
     const song = queue.find((s) => s.id === track.id)!;
     playSong(song, undefined, queue);
   }, [slides, playSong]);
 
   if (slides.length === 0) {
-    return <div className="h-[180px] rounded-2xl bg-muted/20 animate-pulse" />;
+    return <Skeleton className="h-[200px] rounded-2xl bg-white/5" />;
   }
 
   const flag = flagFor(country);
@@ -113,19 +99,19 @@ function HeroCarouselComponent() {
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/40 to-accent/40" />
               )}
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0.15) 100%)' }} />
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0.15) 100%)' }} />
               <div className="absolute top-3 left-3 flex items-center gap-1.5">
                 <span className="text-base leading-none">{flag || '🌍'}</span>
-                <span className="text-[10px] font-bold tracking-[0.18em] text-white/90 uppercase">Cover Story</span>
+                <span className="text-[10px] font-bold tracking-[0.18em] text-white/90 uppercase">For You</span>
               </div>
-              <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-black/55 backdrop-blur-sm text-[10px] font-bold text-white">
-                #{i + 1} VIRAL
+              <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[10px] font-bold text-white">
+                #{s.rank} VIRAL
               </div>
               <div className="absolute right-3 top-1/2 -translate-y-1/2 max-w-[58%] text-right">
                 <p className="text-white text-[26px] font-extrabold leading-[1.05] line-clamp-2 drop-shadow-lg">{s.title}</p>
                 <p className="mt-1 text-white/80 text-[12px] font-semibold truncate">{s.artist}</p>
                 <div className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold shadow-lg">
-                  <Play className="w-3 h-3" fill="currentColor" />
+                  {resolving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" fill="currentColor" />}
                   PLAY NOW
                 </div>
               </div>
@@ -134,7 +120,6 @@ function HeroCarouselComponent() {
         </AnimatePresence>
       </motion.div>
 
-      {/* Dots */}
       <div className="flex justify-center gap-1.5 mt-2">
         {slides.map((_, i) => (
           <button

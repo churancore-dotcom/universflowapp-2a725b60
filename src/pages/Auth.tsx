@@ -50,7 +50,18 @@ const Auth = () => {
           navigate(isAdmin ? '/admin' : '/home');
         }
       } else {
-        const { error } = await signUp(email, password);
+        const cleanUser = username.trim();
+        if (cleanUser.length < 3 || cleanUser.length > 20) {
+          toast.error('Username must be 3–20 characters');
+          setLoading(false);
+          return;
+        }
+        if (!/^[a-zA-Z0-9_.]+$/.test(cleanUser)) {
+          toast.error('Username: letters, numbers, underscore or dot only');
+          setLoading(false);
+          return;
+        }
+        const { error } = await signUp(email, password, { username: cleanUser, country_code: country });
         if (error) {
           const msg = error.message.toLowerCase();
           if (msg.includes('already') || msg.includes('registered') || msg.includes('exists')) {
@@ -60,8 +71,6 @@ const Auth = () => {
             toast.error(error.message);
           }
         } else {
-          // Mark for picker after they verify and sign in for the first time
-          localStorage.setItem('uf_pending_picker_email', email.toLowerCase());
           setVerifySent(email);
         }
       }

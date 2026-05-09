@@ -62,6 +62,10 @@ const PlayWithMate = () => {
     ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=${encodeURIComponent(inviteUrl)}`
     : null;
 
+  if (premiumLoading) {
+    return <PageTransition><div className="h-[100dvh] bg-background" /></PageTransition>;
+  }
+
   if (!premiumLoading && !isPremium) {
     return (
       <PageTransition>

@@ -11,12 +11,13 @@ interface SearchResult {
   videoId: string;
   title: string;
   artist: string;
+  audio_url: string;
   cover_url?: string;
   duration?: number;
 }
 
 function cleanTitle(raw: string) {
-  return raw
+  const cleaned = raw
     .replace(/\s*\(Official\s*(Music\s*)?Video\)/gi, '')
     .replace(/\s*\[Official\s*(Music\s*)?Video\]/gi, '')
     .replace(/\s*\(Official\s*Audio\)/gi, '')
@@ -25,6 +26,9 @@ function cleanTitle(raw: string) {
     .replace(/\s*\[Lyrics?\]/gi, '')
     .replace(/\s*\|\s*.*$/, '')
     .trim();
+  const dash = cleaned.match(/^(.+?)\s*[-–—]\s+(.+)$/);
+  if (dash) return { artist: dash[1].trim(), title: dash[2].trim() };
+  return { artist: '', title: cleaned };
 }
 
 serve(async (req) => {
@@ -73,13 +77,14 @@ serve(async (req) => {
       });
     }
 
-    const { query } = await req.json();
+    const { query, limit: requestedLimit } = await req.json();
     if (!query || typeof query !== 'string' || query.trim().length < 2) {
       return new Response(JSON.stringify({ success: false, error: 'A search query is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    const limit = Math.max(1, Math.min(50, typeof requestedLimit === 'number' ? requestedLimit : 30));
 
     const apiKey = Deno.env.get('YOUTUBE_API_KEY');
     if (!apiKey) {
@@ -94,7 +99,7 @@ serve(async (req) => {
     url.searchParams.set('q', `${query.trim()} music`);
     url.searchParams.set('type', 'video');
     url.searchParams.set('videoCategoryId', '10');
-    url.searchParams.set('maxResults', '15');
+    url.searchParams.set('maxResults', String(limit));
     url.searchParams.set('key', apiKey);
 
     const response = await fetch(url.toString(), {
@@ -117,11 +122,13 @@ serve(async (req) => {
         if (!videoId) return null;
 
         const snippet = item.snippet || {};
+        const parsed = cleanTitle(snippet.title || 'Unknown Title');
         return {
           id: `ytm-${videoId}`,
           videoId,
-          title: cleanTitle(snippet.title || 'Unknown Title'),
-          artist: snippet.channelTitle || 'Unknown Artist',
+          title: parsed.title,
+          artist: parsed.artist || snippet.channelTitle || 'Unknown Artist',
+          audio_url: `yt-video:${videoId}`,
           cover_url: snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url,
         };
       })

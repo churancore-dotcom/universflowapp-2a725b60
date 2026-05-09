@@ -1,4 +1,4 @@
-import { useState, memo, forwardRef } from 'react';
+import { useState, useEffect, memo, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -76,14 +76,20 @@ const AdminLayout = () => {
   const { signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // DEFENSIVE: any time the path changes, force-close the mobile sheet.
+  // Without this, animation re-mounts in the page can resurrect it.
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
   const handleLogout = async () => {
     await signOut();
     navigate('/auth');
   };
 
   const handleNavigation = (path: string) => {
-    navigate(path);
     setSidebarOpen(false);
+    navigate(path);
   };
 
   const SidebarContent = forwardRef<HTMLDivElement>((_, ref) => (

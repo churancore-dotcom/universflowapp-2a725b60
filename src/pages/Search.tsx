@@ -64,13 +64,13 @@ const Search = () => {
   const [isFocused, setIsFocused] = useState(false);
   const [source, setSource] = useState<SearchSource>('all');
   const [resolvingId, setResolvingId] = useState<string | null>(null);
-  const [searchHistory, setSearchHistory] = useState<SongHistoryEntry[]>(() => getSongHistory().filter(entry => !isCatalogSongId(entry.id)));
+  const [searchHistory, setSearchHistory] = useState<SongHistoryEntry[]>(() => getSongHistory());
   const { playSong, currentSong, isPlaying } = usePlayer();
   const { getDownloadedUrl } = useDownloads();
 
   // Refresh history snapshot whenever the currently playing song changes
   useEffect(() => {
-    if (currentSong) setSearchHistory(getSongHistory().filter(entry => !isCatalogSongId(entry.id)));
+    if (currentSong) setSearchHistory(getSongHistory());
   }, [currentSong?.id]);
 
   useEffect(() => {
@@ -114,7 +114,7 @@ const Search = () => {
         setCached('stable-search-v1', trimmedQuery, merged);
 
         setIndexedResults(merged);
-        setSearchHistory(getSongHistory().filter(entry => !isCatalogSongId(entry.id)));
+        setSearchHistory(getSongHistory());
       } catch {
         if (!cancelled) setIndexedResults([]);
       } finally {
@@ -253,7 +253,7 @@ const Search = () => {
                       </button>
                     </div>
                     <div className="space-y-1">
-                      {searchHistory.slice(0, 8).map((entry) => {
+                      {searchHistory.slice(0, 20).map((entry) => {
                         const isActive = currentSong?.id === entry.id;
                         return (
                           <motion.div
@@ -309,7 +309,7 @@ const Search = () => {
                             <button
                               onClick={() => {
                                 removeSongFromHistory(entry.id);
-                                setSearchHistory(getSongHistory().filter(item => !isCatalogSongId(item.id)));
+                                setSearchHistory(getSongHistory());
                               }}
                               className="w-7 h-7 flex items-center justify-center rounded-full text-muted-foreground active:bg-white/10"
                               aria-label="Remove from history"

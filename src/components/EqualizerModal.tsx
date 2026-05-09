@@ -42,7 +42,7 @@ const presets: Preset[] = [
   { id: 'bass-boost', name: 'Bass Boost', icon: Zap, bands: [3, 2, 1, 0, 0, 0, 0, 0], bassBoost: 30 },
   { id: 'treble-boost', name: 'Treble Boost', icon: Sparkles, bands: [0, 0, 0, 0, 1, 2, 3, 3], bassBoost: 0 },
   { id: 'vocal', name: 'Vocal', icon: Volume2, bands: [-1, 0, 1, 3, 3, 2, 0, -1], bassBoost: 0 },
-  { id: '3d-audio', name: '3D Audio', icon: Globe, bands: [1, 0, -1, 0, 0, 1, 2, 1], bassBoost: 10 },
+  { id: '8d-audio', name: '8D Audio', icon: Globe, bands: [1, 0, -1, 0, 0, 1, 2, 1], bassBoost: 10 },
   { id: 'phonk', name: 'Phonk', icon: Headphones, bands: [4, 3, 1, 0, -1, 1, 2, 2], bassBoost: 40 },
   { id: 'deep-bass', name: 'Deep Bass', icon: Waves, bands: [5, 4, 2, 0, 0, 0, -1, -1], bassBoost: 50 },
   { id: 'concert', name: 'Concert', icon: Sparkles, bands: [2, 1, 0, 1, 1, 2, 2, 1], bassBoost: 10 },
@@ -406,7 +406,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
               </div>
             </div>
 
-            {/* 3D Spatial Audio */}
+            {/* 8D Spatial Audio */}
             <div
               className="flex items-center justify-between p-4 rounded-2xl"
               style={{
@@ -415,12 +415,19 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
               }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5">
-                  <Globe className="w-5 h-5 text-muted-foreground" />
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{
+                    background: spatialAudio
+                      ? 'linear-gradient(135deg, hsl(var(--primary) / 0.4), hsl(280 80% 55% / 0.3))'
+                      : 'rgba(255,255,255,0.05)',
+                  }}
+                >
+                  <Globe className={`w-5 h-5 ${spatialAudio ? 'text-primary' : 'text-muted-foreground'}`} />
                 </div>
                 <div>
-                  <span className="text-sm font-medium">3D Spatial Audio</span>
-                  <p className="text-[11px] text-muted-foreground">Immersive surround sound</p>
+                  <span className="text-sm font-medium">8D Audio</span>
+                  <p className="text-[11px] text-muted-foreground">Auto-rotating immersive spatial sound</p>
                 </div>
               </div>
               <Switch

@@ -317,6 +317,33 @@ serve(async (req) => {
 
     console.log(`Authenticated user: ${claimsData.user.id}`);
 
+    // Admin-only gate + per-user rate limit (protects community Piped/Invidious instances)
+    const adminClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    const { data: isAdmin } = await adminClient.rpc('has_role', {
+      _user_id: claimsData.user.id,
+      _role: 'admin',
+    });
+    if (!isAdmin) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const { data: allowed } = await adminClient.rpc('check_and_increment_rate_limit', {
+      _user_id: claimsData.user.id,
+      _endpoint: 'extract-audio',
+      _max_per_minute: 10,
+    });
+    if (allowed === false) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Rate limit exceeded. Try again in a minute.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { url } = await req.json();
 
     if (!url) {

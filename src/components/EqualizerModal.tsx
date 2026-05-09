@@ -166,7 +166,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
 
   const handlePresetSelect = useCallback((preset: Preset) => {
     setBandsState(prev => prev.map((b, i) => ({ ...b, gain: preset.bands[i] ?? 0 })));
-    setBassBoost(preset.bassBoost);
+    setBassBoost(Math.min(preset.bassBoost, 60));
     setActivePreset(preset.id);
     toast.success(`${preset.name} preset applied`);
   }, []);
@@ -354,7 +354,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                   <Slider
                     value={[bassBoost]}
                     min={0}
-                    max={100}
+                    max={60}
                     step={5}
                     onValueChange={([value]) => { setBassBoost(value); setActivePreset('custom'); }}
                     className="w-full [&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-400 [&_[data-radix-slider-range]]:bg-rose-500/60"
@@ -373,7 +373,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                   <Slider
                     value={[reverb]}
                     min={0}
-                    max={100}
+                    max={45}
                     step={5}
                     onValueChange={([value]) => setReverb(value)}
                     className="w-full [&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-400 [&_[data-radix-slider-range]]:bg-rose-500/60"

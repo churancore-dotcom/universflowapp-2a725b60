@@ -344,15 +344,22 @@ export function setSpatial(enabled: boolean) {
   if (!engine.panner || !engine.ctx) return;
   if (!enabled) {
     const now = engine.ctx.currentTime;
-    engine.panner.pan.cancelScheduledValues(now);
-    engine.panner.pan.setTargetAtTime(0, now, SMOOTH);
+    engine.panner.positionX.cancelScheduledValues(now);
+    engine.panner.positionY.cancelScheduledValues(now);
+    engine.panner.positionZ.cancelScheduledValues(now);
+    engine.panner.positionX.setTargetAtTime(0, now, SMOOTH);
+    engine.panner.positionY.setTargetAtTime(0, now, SMOOTH);
+    engine.panner.positionZ.setTargetAtTime(1, now, SMOOTH);
     return;
   }
   const tick = () => {
     if (!engine.panner || !engine.ctx) return;
     engine.spatialAngle += 0.012;
-    const v = Math.sin(engine.spatialAngle) * 0.32;
-    engine.panner.pan.setTargetAtTime(v, engine.ctx.currentTime, 0.12);
+    const x = Math.sin(engine.spatialAngle) * 0.75;
+    const z = 0.85 + Math.cos(engine.spatialAngle) * 0.28;
+    engine.panner.positionX.setTargetAtTime(x, engine.ctx.currentTime, 0.16);
+    engine.panner.positionY.setTargetAtTime(0, engine.ctx.currentTime, 0.16);
+    engine.panner.positionZ.setTargetAtTime(z, engine.ctx.currentTime, 0.16);
     engine.spatialRaf = requestAnimationFrame(tick);
   };
   engine.spatialRaf = requestAnimationFrame(tick);

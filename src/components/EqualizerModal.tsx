@@ -127,6 +127,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const [reverb, setReverb] = useState(Math.min(saved?.reverb ?? 0, 45));
   const [playbackSpeed, setPlaybackSpeed] = useState(saved?.playbackSpeed ?? 1);
   const [spatialAudio, setSpatialAudio] = useState(saved?.spatialAudio ?? false);
+  const [studioSpace, setStudioSpace] = useState<StudioSpaceId>(saved?.studioSpace ?? 'off');
   const [activePreset, setActivePreset] = useState<string>(saved?.activePreset ?? 'flat');
 
   // Only route through Web Audio while EQ/effects are active. This prevents
@@ -134,31 +135,37 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   useEffect(() => {
     if (!isPremium) return;
     if (!audioElement) return;
-    const active = hasActiveProcessing({ bands, bassBoost, reverb, playbackSpeed, spatialAudio });
+    const active = hasActiveProcessing({ bands, bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace });
     if (active) {
       engineResume();
       connectAudioElement(audioElement);
       engineSetBands(bands.map(b => b.gain), bassBoost);
-      engineSetReverb(reverb);
+      // When a Studio Space is active, IT owns wet/dry. Otherwise the reverb slider does.
+      if (studioSpace === 'off') engineSetReverb(reverb);
+      engineSetStudioSpace(studioSpace);
       engineSetSpatial(spatialAudio);
     } else {
       bypassAudioElement(audioElement);
       engineSetSpatial(false);
       audioElement.playbackRate = 1;
     }
-  }, [isPremium, audioElement, currentSong?.id, bands, bassBoost, reverb, playbackSpeed, spatialAudio]);
+  }, [isPremium, audioElement, currentSong?.id, bands, bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace]);
 
   // Push EQ band changes to the engine (smoothed, never rebuilds graph)
   useEffect(() => {
-    if (!isPremium || !audioElement || !hasActiveProcessing({ bands, bassBoost, reverb, playbackSpeed, spatialAudio })) return;
+    if (!isPremium || !audioElement || !hasActiveProcessing({ bands, bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace })) return;
     engineResume();
     connectAudioElement(audioElement);
     engineSetBands(bands.map(b => b.gain), bassBoost);
-  }, [isPremium, bands, bassBoost, audioElement, reverb, playbackSpeed, spatialAudio]);
+  }, [isPremium, bands, bassBoost, audioElement, reverb, playbackSpeed, spatialAudio, studioSpace]);
 
   useEffect(() => {
-    if (isPremium) engineSetReverb(reverb);
-  }, [isPremium, reverb]);
+    if (isPremium && studioSpace === 'off') engineSetReverb(reverb);
+  }, [isPremium, reverb, studioSpace]);
+
+  useEffect(() => {
+    if (isPremium) engineSetStudioSpace(studioSpace);
+  }, [isPremium, studioSpace]);
 
   useEffect(() => {
     if (isPremium) engineSetSpatial(spatialAudio);
@@ -176,9 +183,10 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
       reverb,
       playbackSpeed,
       spatialAudio,
+      studioSpace,
       activePreset,
     });
-  }, [bands, bassBoost, reverb, playbackSpeed, spatialAudio, activePreset]);
+  }, [bands, bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace, activePreset]);
 
   const handleBandChange = useCallback((index: number, value: number) => {
     setBandsState(prev => prev.map((b, i) => i === index ? { ...b, gain: value } : b));

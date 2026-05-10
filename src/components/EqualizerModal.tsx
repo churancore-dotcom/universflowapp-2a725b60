@@ -87,13 +87,15 @@ function hasActiveProcessing(data: {
   reverb: number;
   playbackSpeed: number;
   spatialAudio: boolean;
+  studioSpace: StudioSpaceId;
 }) {
   return Boolean(
     data.bands.some((band) => Math.abs(band.gain) >= 0.5) ||
     data.bassBoost > 0 ||
     data.reverb > 0 ||
     data.spatialAudio ||
-    data.playbackSpeed !== 1
+    data.playbackSpeed !== 1 ||
+    data.studioSpace !== 'off'
   );
 }
 

@@ -102,6 +102,8 @@ function hostnameMatchesAllowedSuffix(hostname: string): boolean {
 
 const LASTFM_API_KEY = Deno.env.get('LASTFM_API_KEY') || '';
 const YOUTUBE_API_KEY = Deno.env.get('YOUTUBE_API_KEY') || '';
+const YOUTUBE_API_KEY_2 = Deno.env.get('YOUTUBE_API_KEY_2') || '';
+const YOUTUBE_API_KEYS = [YOUTUBE_API_KEY, YOUTUBE_API_KEY_2].filter(Boolean);
 const LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
 
 // ── Instance lists (pruned to actually-working ones, April 2026) ──

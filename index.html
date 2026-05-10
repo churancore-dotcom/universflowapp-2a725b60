@@ -78,18 +78,29 @@
     <meta name="twitter:creator" content="@UniversFlow" />
     
     <!-- Favicon -->
-    
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+
     <!-- Preconnect to important domains -->
     <link rel="preconnect" href="https://storage.googleapis.com" />
     <link rel="dns-prefetch" href="https://storage.googleapis.com" />
-    
-  
-  
-  
-  <meta property="og:title" content="Univers Flow - Free Music Streaming &amp; Download | Listen Offline">
-  <meta name="twitter:title" content="Univers Flow - Free Music Streaming &amp; Download | Listen Offline">
-  <meta property="og:description" content="Stream and download unlimited music for free with Univers Flow. Discover millions of songs, create playlists, and listen offline. The best free music app.">
-  <meta name="twitter:description" content="Stream and download unlimited music for free with Univers Flow. Discover millions of songs, create playlists, and listen offline. The best free music app.">
+    <link rel="preconnect" href="https://kzaeahjeqlihmxrfhjqd.supabase.co" />
+
+  <meta property="og:title" content="Universflow — Free Music Streaming, Download &amp; Offline Player" />
+  <meta name="twitter:title" content="Universflow — Free Music Streaming, Download &amp; Offline Player" />
+  <meta property="og:description" content="Stream millions of songs free on Universflow. Discover trending tracks, follow artists, build playlists, and listen offline." />
+  <meta name="twitter:description" content="Stream millions of songs free on Universflow. Discover trending tracks, follow artists, build playlists, and listen offline." />
+
+  <!-- Structured Data: WebSite + Organization + MobileApplication -->
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@graph":[
+    {"@type":"WebSite","@id":"https://universflow.in/#website","url":"https://universflow.in/","name":"Universflow","description":"Free music streaming and download — stream, follow artists, listen offline.","potentialAction":{"@type":"SearchAction","target":"https://universflow.in/search?q={search_term_string}","query-input":"required name=search_term_string"}},
+    {"@type":"Organization","@id":"https://universflow.in/#org","name":"Universflow","url":"https://universflow.in/","logo":"https://universflow.in/pwa-512x512.png"},
+    {"@type":"MobileApplication","name":"Universflow","operatingSystem":"ANDROID, WEB, IOS","applicationCategory":"MusicApplication","url":"https://universflow.in/","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","ratingCount":"1280"}}
+  ]}
+  </script>
 </head>
 
   <body>

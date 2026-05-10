@@ -14,6 +14,7 @@ import { usePremium } from '@/hooks/usePremium';
 import { useHaptics } from '@/hooks/useHaptics';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEmailVerified } from '@/hooks/useEmailVerified';
 import { toast } from '@/hooks/use-toast';
 
 type PlanId = 'monthly' | 'quarterly';

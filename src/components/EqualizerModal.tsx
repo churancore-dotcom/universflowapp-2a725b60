@@ -14,9 +14,28 @@ import {
   setBands as engineSetBands,
   setReverb as engineSetReverb,
   setSpatial as engineSetSpatial,
+  setStudioSpace as engineSetStudioSpace,
   resume as engineResume,
+  type StudioSpaceId,
 } from '@/lib/audioEngine';
 import { useEngineState } from '@/hooks/useGlobalAudioEngine';
+
+interface StudioSpace {
+  id: StudioSpaceId;
+  name: string;
+  icon: React.ComponentType<{ className?: string }>;
+  desc: string;
+}
+
+const STUDIO_SPACES: StudioSpace[] = [
+  { id: 'off',       name: 'Off',         icon: X,         desc: 'No space' },
+  { id: 'vinyl',     name: 'Vinyl Booth', icon: Disc3,     desc: 'Warm & intimate' },
+  { id: 'studio',    name: 'Studio',      icon: Mic2,      desc: 'Dry & precise' },
+  { id: 'bedroom',   name: 'Bedroom',     icon: Home,      desc: 'Cozy & close' },
+  { id: 'hall',      name: 'Concert Hall',icon: Building2, desc: 'Spacious & lush' },
+  { id: 'cathedral', name: 'Cathedral',   icon: Church,    desc: 'Vast & ethereal' },
+  { id: 'stadium',   name: 'Stadium',     icon: Trophy,    desc: 'Huge & roaring' },
+];
 
 interface EqualizerModalProps {
   isOpen: boolean;

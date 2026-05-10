@@ -6,6 +6,7 @@ import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { useNavigate } from 'react-router-dom';
 import { Slider } from '@/components/ui/slider';
 import LikeButton from './LikeButton';
+import PinToViralButton from './PinToViralButton';
 import DownloadButton from './DownloadButton';
 import SocialShareModal from './SocialShareModal';
 import AddToPlaylistModal from './AddToPlaylistModal';

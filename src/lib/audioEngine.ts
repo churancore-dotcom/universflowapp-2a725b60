@@ -56,6 +56,7 @@ const engine: Engine = {
   signature: null,
   mode: 'idle',
   spatialEnabled: false,
+  lateNightEnabled: false,
   listeners: new Set(),
   cachedIR: null,
 };

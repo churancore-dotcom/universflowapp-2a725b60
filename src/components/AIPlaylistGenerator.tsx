@@ -23,49 +23,64 @@ interface MoodOption {
 }
 
 const moodOptions: MoodOption[] = [
-  { 
-    id: 'energetic', 
-    label: 'Energetic', 
-    icon: <Zap className="w-5 h-5" />, 
-    prompt: 'high energy, upbeat, workout',
-    gradient: 'from-orange-500 to-red-500'
+  {
+    id: 'energetic',
+    label: 'Energetic',
+    icon: <Zap className="w-5 h-5" />,
+    prompt: 'high energy workout',
+    queries: ['high energy workout hits', 'gym motivation songs', 'upbeat pop bangers', 'edm workout playlist'],
+    gradient: 'from-orange-500 to-red-500',
   },
-  { 
-    id: 'chill', 
-    label: 'Chill', 
-    icon: <Moon className="w-5 h-5" />, 
-    prompt: 'relaxing, calm, ambient',
-    gradient: 'from-blue-500 to-purple-500'
+  {
+    id: 'chill',
+    label: 'Chill',
+    icon: <Moon className="w-5 h-5" />,
+    prompt: 'relaxing chill',
+    queries: ['chill lofi beats', 'relaxing acoustic songs', 'calm ambient music', 'sunset chill mix'],
+    gradient: 'from-blue-500 to-purple-500',
   },
-  { 
-    id: 'happy', 
-    label: 'Happy', 
-    icon: <Sun className="w-5 h-5" />, 
-    prompt: 'happy, joyful, feel-good',
-    gradient: 'from-yellow-500 to-orange-500'
+  {
+    id: 'happy',
+    label: 'Happy',
+    icon: <Sun className="w-5 h-5" />,
+    prompt: 'happy feel good',
+    queries: ['feel good happy songs', 'good vibes pop', 'happy hindi songs', 'sunshine indie hits'],
+    gradient: 'from-yellow-500 to-orange-500',
   },
-  { 
-    id: 'romantic', 
-    label: 'Romantic', 
-    icon: <Heart className="w-5 h-5" />, 
-    prompt: 'romantic, love songs, emotional',
-    gradient: 'from-pink-500 to-rose-500'
+  {
+    id: 'romantic',
+    label: 'Romantic',
+    icon: <Heart className="w-5 h-5" />,
+    prompt: 'romantic love songs',
+    queries: ['romantic love songs', 'best hindi romantic songs', 'slow love ballads', 'arijit singh romantic'],
+    gradient: 'from-pink-500 to-rose-500',
   },
-  { 
-    id: 'focus', 
-    label: 'Focus', 
-    icon: <Music2 className="w-5 h-5" />, 
-    prompt: 'focus, concentration, study',
-    gradient: 'from-cyan-500 to-blue-500'
+  {
+    id: 'focus',
+    label: 'Focus',
+    icon: <Music2 className="w-5 h-5" />,
+    prompt: 'focus study',
+    queries: ['deep focus instrumental', 'study lofi mix', 'concentration piano music', 'ambient study beats'],
+    gradient: 'from-cyan-500 to-blue-500',
   },
-  { 
-    id: 'party', 
-    label: 'Party', 
-    icon: <Sparkles className="w-5 h-5" />, 
-    prompt: 'party, dance, club',
-    gradient: 'from-violet-500 to-purple-500'
+  {
+    id: 'party',
+    label: 'Party',
+    icon: <Sparkles className="w-5 h-5" />,
+    prompt: 'party dance',
+    queries: ['party dance hits', 'club bangers 2024', 'bollywood party songs', 'edm party anthems'],
+    gradient: 'from-violet-500 to-purple-500',
   },
 ];
+
+interface MoodOption {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  prompt: string;
+  queries: string[];
+  gradient: string;
+}
 
 const AIPlaylistGenerator = memo(({ isOpen, onClose, onPlaylistCreated }: AIPlaylistGeneratorProps) => {
   const { user } = useAuth();

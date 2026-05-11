@@ -86,6 +86,76 @@ serve(async (req) => {
     }
     const limit = Math.max(1, Math.min(50, typeof requestedLimit === 'number' ? requestedLimit : 30));
 
+    // ---------- Try Invidious (Railway) FIRST for fresh results ----------
+    const INVIDIOUS_INSTANCES = [
+      'https://invidious-production-d29a.up.railway.app',
+      'https://inv.nadeko.net',
+      'https://invidious.nerdvpn.de',
+      'https://iv.datura.network',
+      'https://invidious.privacyredirect.com',
+    ];
+
+    // sort_by: relevance | upload_date | view_count | rating
+    // We pick upload_date when user prefixes "new:" else relevance, BUT bias to recent
+    let sortBy = 'relevance';
+    let cleanQuery = query.trim();
+    if (cleanQuery.toLowerCase().startsWith('new:')) {
+      sortBy = 'upload_date';
+      cleanQuery = cleanQuery.slice(4).trim();
+    }
+
+    let invResults: SearchResult[] = [];
+    for (const inst of INVIDIOUS_INSTANCES) {
+      try {
+        const u = new URL(`${inst}/api/v1/search`);
+        u.searchParams.set('q', `${cleanQuery} music`);
+        u.searchParams.set('type', 'video');
+        u.searchParams.set('sort_by', sortBy);
+        u.searchParams.set('date', 'year'); // last year only — keeps results fresh
+        const ctrl = new AbortController();
+        const tm = setTimeout(() => ctrl.abort(), 6000);
+        const r = await fetch(u.toString(), { headers: { Accept: 'application/json' }, signal: ctrl.signal });
+        clearTimeout(tm);
+        if (!r.ok) continue;
+        const items: any[] = await r.json();
+        invResults = items
+          .slice(0, limit)
+          .map((item: any) => {
+            const videoId = item?.videoId;
+            if (!videoId) return null;
+            const parsed = cleanTitle(item.title || 'Unknown Title');
+            const thumb = item.videoThumbnails?.find((t: any) => t.quality === 'medium')?.url
+              || item.videoThumbnails?.find((t: any) => t.quality === 'high')?.url
+              || item.videoThumbnails?.[0]?.url;
+            const cover_url = thumb?.startsWith('/') ? `${inst}${thumb}` : thumb;
+            return {
+              id: `ytm-${videoId}`,
+              videoId,
+              title: parsed.title,
+              artist: parsed.artist || item.author || 'Unknown Artist',
+              audio_url: `yt-video:${videoId}`,
+              cover_url,
+              duration: item.lengthSeconds || undefined,
+            };
+          })
+          .filter(Boolean) as SearchResult[];
+        if (invResults.length > 0) {
+          console.log(`Invidious search OK via ${inst}: ${invResults.length} results`);
+          break;
+        }
+      } catch (e) {
+        console.warn(`Invidious search failed on ${inst}:`, (e as Error).message);
+      }
+    }
+
+    if (invResults.length > 0) {
+      return new Response(JSON.stringify({ success: true, results: invResults, source: 'invidious' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ---------- Fallback: YouTube Data API ----------
+    console.log('Invidious returned 0 results, falling back to YouTube Data API');
     const apiKeys = [
       Deno.env.get('YOUTUBE_API_KEY'),
       Deno.env.get('YOUTUBE_API_KEY_2'),
@@ -103,10 +173,12 @@ serve(async (req) => {
     for (const apiKey of apiKeys) {
       const url = new URL('https://www.googleapis.com/youtube/v3/search');
       url.searchParams.set('part', 'snippet');
-      url.searchParams.set('q', `${query.trim()} music`);
+      url.searchParams.set('q', `${cleanQuery} music`);
       url.searchParams.set('type', 'video');
       url.searchParams.set('videoCategoryId', '10');
       url.searchParams.set('maxResults', String(limit));
+      url.searchParams.set('order', sortBy === 'upload_date' ? 'date' : 'relevance');
+      url.searchParams.set('publishedAfter', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString());
       url.searchParams.set('key', apiKey);
 
       const response = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
@@ -116,7 +188,6 @@ serve(async (req) => {
       }
       lastErr = await response.text();
       console.warn(`YouTube key failed (${response.status}), trying next...`, lastErr.slice(0, 200));
-      // Only rotate on quota/forbidden style errors; otherwise still try next as last resort
     }
 
     if (!data) {
@@ -131,7 +202,6 @@ serve(async (req) => {
       .map((item: any) => {
         const videoId = item?.id?.videoId;
         if (!videoId) return null;
-
         const snippet = item.snippet || {};
         const parsed = cleanTitle(snippet.title || 'Unknown Title');
         return {

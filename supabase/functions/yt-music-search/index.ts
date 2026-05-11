@@ -263,10 +263,17 @@ serve(async (req) => {
     }
 
     const results: SearchResult[] = (data.items || [])
-      .map((item: any) => {
+      .map((item: any, index: number) => {
         const videoId = item?.id?.videoId;
         if (!videoId) return null;
         const snippet = item.snippet || {};
+        const comparable = {
+          videoId,
+          title: snippet.title || '',
+          author: snippet.channelTitle || '',
+          published: snippet.publishedAt ? Math.floor(new Date(snippet.publishedAt).getTime() / 1000) : 0,
+        };
+        if (looksSpammy(comparable, cleanQuery) || scoreResult(comparable, cleanQuery, index) <= -20) return null;
         const parsed = cleanTitle(snippet.title || 'Unknown Title');
         return {
           id: `ytm-${videoId}`,
@@ -275,6 +282,7 @@ serve(async (req) => {
           artist: parsed.artist || snippet.channelTitle || 'Unknown Artist',
           audio_url: `yt-video:${videoId}`,
           cover_url: snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url,
+          published: comparable.published || undefined,
         };
       })
       .filter(Boolean);

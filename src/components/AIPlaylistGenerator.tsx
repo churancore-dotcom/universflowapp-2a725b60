@@ -19,6 +19,7 @@ interface MoodOption {
   label: string;
   icon: React.ReactNode;
   prompt: string;
+  queries: string[];
   gradient: string;
 }
 

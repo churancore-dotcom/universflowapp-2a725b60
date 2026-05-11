@@ -87,7 +87,7 @@ const Search = () => {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const cached = getCached<IndexedTrack[]>('stable-search-v1', trimmedQuery);
+        const cached = getCached<IndexedTrack[]>('stable-search-v2', trimmedQuery);
         if (cached) {
           if (!cancelled) setIndexedResults(cached);
           return;
@@ -112,7 +112,7 @@ const Search = () => {
         if (cancelled) return;
 
         const merged = rankAndDedupeResults(trimmedQuery, youtube, literal, tagSets).slice(0, 120);
-        setCached('stable-search-v1', trimmedQuery, merged);
+        setCached('stable-search-v2', trimmedQuery, merged);
 
         setIndexedResults(merged);
         setSearchHistory(getSongHistory());

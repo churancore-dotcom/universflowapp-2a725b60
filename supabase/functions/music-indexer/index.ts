@@ -468,21 +468,29 @@ async function findMatchingArtist(query: string): Promise<string | null> {
   const c = getCached<string | null>(ck);
   if (c !== null) return c || null;
   try {
-    const d = await fetchJson(buildLastFmUrl('artist.search', { artist: query, limit: '3' }));
+    const d = await fetchJson(buildLastFmUrl('artist.search', { artist: query, limit: '8' }));
     const raw = d?.results?.artistmatches?.artist;
     const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
-    const top = list[0];
-    const topName: string = top?.name || '';
-    const topListeners = Number(top?.listeners || 0);
-    // Treat as artist query when name closely matches and has reasonable popularity
     const normalizedQuery = normalizeText(query);
-    const normalizedTop = normalizeText(topName);
-    const isMatch = normalizedTop &&
-      (normalizedTop === normalizedQuery ||
-       normalizedTop.includes(normalizedQuery) ||
-       normalizedQuery.includes(normalizedTop)) &&
-      topListeners > 5000;
-    const result = isMatch ? topName : null;
+    const candidates = list
+      .map((artist: any) => {
+        const name = String(artist?.name || '').trim();
+        const normalizedName = normalizeText(name);
+        const queryWords = normalizedQuery.split(' ').filter(Boolean);
+        const hits = queryWords.filter((word) => normalizedName.includes(word)).length;
+        let score = Number(artist?.listeners || 0) > 0 ? Math.log10(Number(artist.listeners)) : 0;
+        if (normalizedName === normalizedQuery) score += 100;
+        else if (normalizedName.includes(normalizedQuery) || normalizedQuery.includes(normalizedName)) score += 70;
+        score += hits * 18;
+        return { name, normalizedName, score };
+      })
+      .filter((artist: { name: string; normalizedName: string; score: number }) =>
+        artist.name &&
+        artist.normalizedName &&
+        (artist.normalizedName === normalizedQuery || artist.normalizedName.includes(normalizedQuery) || normalizedQuery.includes(artist.normalizedName) || queryOverlap(query, { id: '', title: '', artist: artist.name }) >= 0.5)
+      )
+      .sort((a: { score: number }, b: { score: number }) => b.score - a.score);
+    const result = candidates[0]?.name || null;
     setCached(ck, result || '', 60 * 60 * 1000);
     return result;
   } catch {

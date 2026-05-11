@@ -26,6 +26,7 @@ import {
   FlaskConical,
   Lock,
   MessageCircle,
+  Smartphone,
 } from 'lucide-react';
 
 const navItems = [

@@ -250,7 +250,7 @@ const AIPlaylistGenerator = memo(({ isOpen, onClose, onPlaylistCreated }: AIPlay
                 <Wand2 className="w-6 h-6 text-white" />
               </motion.div>
               <div>
-                <h2 className="text-lg font-semibold">AI DJ</h2>
+                <h2 className="text-lg font-semibold">AI Playlist</h2>
                 <p className="text-xs text-muted-foreground">Create a personalized playlist</p>
               </div>
             </div>

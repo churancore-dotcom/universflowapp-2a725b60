@@ -247,6 +247,7 @@ serve(async (req) => {
     }
 
     if (invResults.length > 0) {
+      await persistSearchResults(adminClient, invResults);
       return new Response(JSON.stringify({ success: true, results: invResults, source: 'invidious' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -329,6 +330,8 @@ serve(async (req) => {
         };
       })
       .filter(Boolean);
+
+    await persistSearchResults(adminClient, results);
 
     return new Response(JSON.stringify({ success: true, results }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

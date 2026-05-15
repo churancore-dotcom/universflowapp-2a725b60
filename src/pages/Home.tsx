@@ -384,8 +384,6 @@ const Home = () => {
                   {/* Top 30 from your followed artists */}
                   <GlobalTopTracksSection />
 
-                  {/* Auto-generated mixes from listening history */}
-                  <AutoMixSection />
                 </>
               )}
 

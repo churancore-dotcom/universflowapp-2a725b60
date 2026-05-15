@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
 import BottomNav from '@/components/BottomNav';
 import RedeemCodeModal from '@/components/RedeemCodeModal';
+import PremiumBadge from '@/components/PremiumBadge';
+import RenewalNudge from '@/components/RenewalNudge';
 import ReviewModal from '@/components/ReviewModal';
 import ReviewsSheet from '@/components/ReviewsSheet';
 import { TabTransition } from '@/components/PageTransition';
@@ -215,11 +217,7 @@ const Profile = () => {
                           <Edit2 className="w-3 h-3 text-muted-foreground" />
                         </button>
                       )}
-                      {isPremium && (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold" style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)', color: '#000' }}>
-                          PREMIUM
-                        </span>
-                      )}
+                      {isPremium && <PremiumBadge size="xs" />}
                     </>
                   )}
                 </div>
@@ -299,6 +297,9 @@ const Profile = () => {
               <span className="flex-1 text-sm font-medium text-destructive">Sign Out</span>
             </button>
           </div>
+
+          {/* Renewal nudge (premium users within 7 days of expiry) */}
+          <RenewalNudge />
 
           {/* Premium Section */}
           {!premiumLoading && !isPremium && (

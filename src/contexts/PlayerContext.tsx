@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import { useMediaSession } from '@/hooks/useMediaSession';
 import { useGlobalAudioEngine } from '@/hooks/useGlobalAudioEngine';
 import { supabase } from '@/integrations/supabase/client';
-import { resolveIndexedTrack, prefetchIndexedTrack } from '@/lib/musicIndexer';
+import { resolveIndexedTrack, prefetchIndexedTrack, invalidateStreamCache } from '@/lib/musicIndexer';
 import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
 import { resume as resumeAudioEngine } from '@/lib/audioEngine';
 import { toast } from 'sonner';
@@ -501,16 +501,21 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:');
   }, []);
 
-  // Resolve audio URL for indexed/stream tracks that have no real URL
-  const resolveAudioUrl = useCallback(async (song: Song): Promise<string | null> => {
-    if (isPlayableUrl(song.audio_url)) return song.audio_url;
-    // Try to resolve via music indexer
-    try {
-      const result = await resolveIndexedTrack(song.artist, song.title);
-      if (result?.streamUrl) return result.streamUrl;
-    } catch { /* fall through */ }
-    return null;
-  }, [isPlayableUrl]);
+  // Resolve audio URL for indexed/stream tracks that have no real URL.
+  // Pass `forceRefresh` to bypass any cached URL — used when a previously
+  // cached URL just failed to play (stale Invidious link, expired token, etc).
+  const resolveAudioUrl = useCallback(
+    async (song: Song, opts: { forceRefresh?: boolean } = {}): Promise<string | null> => {
+      if (!opts.forceRefresh && isPlayableUrl(song.audio_url)) return song.audio_url;
+      if (!song.artist || !song.title) return null;
+      try {
+        const result = await resolveIndexedTrack(song.artist, song.title, opts);
+        if (result?.streamUrl) return result.streamUrl;
+      } catch { /* fall through */ }
+      return null;
+    },
+    [isPlayableUrl],
+  );
 
   // ── Preload NEXT queued track for zero-gap transitions ──
   // Whenever queue / current index changes, warm `nextAudioRef` with the upcoming

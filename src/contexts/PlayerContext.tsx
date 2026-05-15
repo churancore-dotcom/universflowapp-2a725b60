@@ -854,10 +854,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       lastErrorAt = now;
 
       const errorCode = audio.error?.code;
+      const errorMessage = audio.error?.message ?? '';
       // Ignore aborts triggered by intentional source swaps / pauses
       if (errorCode === MediaError.MEDIA_ERR_ABORTED) return;
+      // Ignore "Empty src attribute" — fires during teardown / before a real
+      // src is assigned, and must NOT cause us to auto-skip the queue.
+      if (!audio.src || audio.src === window.location.href || /empty src/i.test(errorMessage)) return;
 
-      console.warn('[player] audio error, auto-skipping:', errorCode, audio.error?.message);
+      console.warn('[player] audio error, auto-skipping:', errorCode, errorMessage);
 
       // ── First-chance recovery: stream URL likely went stale. Re-resolve
       //    once with a forced cache-bust, then retry the same song. Only skip

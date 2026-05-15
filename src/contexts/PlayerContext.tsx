@@ -144,6 +144,47 @@ const shouldProxyStreamUrl = (sourceUrl: string) => {
   }
 };
 
+// ── Free-tier skip cap ──
+// Mirrors industry standard (Spotify free): 6 skips per rolling hour. Premium
+// is uncapped. We read the premium cache that usePremium writes so we don't
+// need to thread the hook into the player context.
+const SKIP_LOG_KEY = 'uf_skip_log_v1';
+const FREE_SKIPS_PER_HOUR = 6;
+
+const isPremiumFromCache = (): boolean => {
+  try {
+    const raw = localStorage.getItem('uf_premium_cache_v1');
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    const sub = parsed?.subscription;
+    if (!sub) return false;
+    if (sub.subscription_type === 'free') return false;
+    if (sub.status !== 'active') return false;
+    if (sub.expires_at && new Date(sub.expires_at) < new Date()) return false;
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const recordSkipAndCheck = (): { allowed: boolean; remaining: number } => {
+  if (isPremiumFromCache()) return { allowed: true, remaining: Infinity };
+  try {
+    const now = Date.now();
+    const raw = localStorage.getItem(SKIP_LOG_KEY);
+    const log: number[] = raw ? JSON.parse(raw) : [];
+    const recent = log.filter((t) => now - t < 60 * 60 * 1000);
+    if (recent.length >= FREE_SKIPS_PER_HOUR) {
+      return { allowed: false, remaining: 0 };
+    }
+    recent.push(now);
+    localStorage.setItem(SKIP_LOG_KEY, JSON.stringify(recent));
+    return { allowed: true, remaining: FREE_SKIPS_PER_HOUR - recent.length };
+  } catch {
+    return { allowed: true, remaining: FREE_SKIPS_PER_HOUR };
+  }
+};
+
 // Cache the current access token so we can append it to <audio src> proxy URLs.
 // (audio elements can't send custom Authorization headers.)
 let cachedAccessToken: string | null = null;
@@ -1224,6 +1265,24 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [teardownYouTubePlayback]);
 
   const nextSong = useCallback(() => {
+    // Free-tier skip cap (Spotify-style): 6/hour, unlimited on Premium
+    const { allowed, remaining } = recordSkipAndCheck();
+    if (!allowed) {
+      toast.error('Skip limit reached', {
+        description: 'Upgrade to Premium for unlimited skips.',
+        action: {
+          label: 'Upgrade',
+          onClick: () => { window.location.href = '/premium'; },
+        },
+      });
+      return;
+    }
+    if (Number.isFinite(remaining) && remaining <= 2) {
+      toast.message(`${remaining} skip${remaining === 1 ? '' : 's'} left this hour`, {
+        description: 'Premium = unlimited skips',
+      });
+    }
+
     if (queue.length === 0) return;
 
     // Cancel crossfade

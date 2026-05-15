@@ -11,6 +11,7 @@ import AllSongsSection from '@/components/AllSongsSection';
 
 import GlobalTopTracksSection from '@/components/GlobalTopTracksSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
+import PremiumFirstSection from '@/components/PremiumFirstSection';
 
 
 import CountryViralSection from '@/components/CountryViralSection';
@@ -375,6 +376,9 @@ const Home = () => {
               {/* Online-only discovery sections — hidden when offline */}
               {!isOffline && (
                 <>
+                  {/* Premium-only / early-access shelf (teaser for free users) */}
+                  <PremiumFirstSection />
+
                   {/* Artist discovery */}
                   <FeaturedArtistsSection />
 

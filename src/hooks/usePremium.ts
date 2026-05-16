@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useContext } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AuthContext } from '@/contexts/AuthContext';
+import { setRuntimePremium } from '@/lib/premiumState';
 
 export type SubscriptionType = 'free' | 'premium_monthly' | 'premium_yearly';
 export type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'pending';

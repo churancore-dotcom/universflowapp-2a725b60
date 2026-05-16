@@ -1051,17 +1051,10 @@ serve(async (req) => {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: `Bearer ${bearer}` } } }
-    );
-    const { data: userData, error: authError } = await supabaseClient.auth.getUser(bearer);
-    if (authError || !userData?.user) {
-      return new Response(JSON.stringify({ success: false, error: 'Invalid authentication' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Accept either a user JWT or the project anon key. Discovery actions
+    // (top/geo-top/resolve) and the host-allowlisted audio proxy are safe to
+    // serve to unauthenticated visitors so /home stays publicly indexable.
+
 
     if ((req.method === 'GET' || req.method === 'HEAD') && audioTarget) {
       if (!isAllowedAudioProxyUrl(audioTarget)) {

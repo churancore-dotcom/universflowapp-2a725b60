@@ -94,6 +94,10 @@
     <link rel="dns-prefetch" href="https://storage.googleapis.com" />
     <link rel="preconnect" href="https://kzaeahjeqlihmxrfhjqd.supabase.co" />
 
+    <!-- Preload above-the-fold LCP assets (splash video + app icon) -->
+    <link rel="preload" as="video" href="/logo-anim.mp4" type="video/mp4" fetchpriority="high" />
+    <link rel="preload" as="image" href="/pwa-192x192.png" fetchpriority="high" />
+
   <meta property="og:title" content="Universflow — Free Music Streaming, Download &amp; Offline Player" />
   <meta name="twitter:title" content="Universflow — Free Music Streaming, Download &amp; Offline Player" />
   <meta property="og:description" content="Stream millions of songs free on Universflow. Discover trending tracks, follow artists, build playlists, and listen offline." />

@@ -19,6 +19,7 @@ const entries: SitemapEntry[] = [
   { path: "/artists", lastmod: "2026-05-16", changefreq: "weekly", priority: "0.85" },
   { path: "/premium", lastmod: "2026-05-16", changefreq: "monthly", priority: "0.8" },
   { path: "/support", lastmod: "2026-05-16", changefreq: "monthly", priority: "0.65" },
+  { path: "/library", lastmod: "2026-05-16", changefreq: "weekly", priority: "0.7" },
   { path: "/auth", lastmod: "2026-05-16", changefreq: "monthly", priority: "0.6" },
   { path: "/playlist/e015b693-1b9a-4014-ac42-2ff290806b1c", lastmod: "2026-05-16", changefreq: "weekly", priority: "0.65" },
   { path: "/playlist/174da7f9-083b-471e-a5ff-a343e744cb1a", lastmod: "2026-05-16", changefreq: "weekly", priority: "0.65" },

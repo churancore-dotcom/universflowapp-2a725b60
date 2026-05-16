@@ -218,12 +218,17 @@ serve(async (req) => {
     }
 
     let invResults: SearchResult[] = [];
-    const dateWindows = ['year', '']; // fresh first, then all-time for artists with older catalogs
+    const lyricMode = isLyricQuery(cleanQuery);
+    // For lyric queries skip the "fresh year" window entirely — most lyric
+    // searches target a specific older song.
+    const dateWindows = lyricMode ? [''] : ['year', ''];
+    // Append a query hint so YouTube/Invidious rank the right kind of video.
+    const providerQuery = lyricMode ? `${cleanQuery} lyrics` : `${cleanQuery} music`;
     for (const dateWindow of dateWindows) {
       for (const inst of INVIDIOUS_INSTANCES) {
         try {
           const u = new URL(`${inst}/api/v1/search`);
-          u.searchParams.set('q', `${cleanQuery} music`);
+          u.searchParams.set('q', providerQuery);
           u.searchParams.set('type', 'video');
           u.searchParams.set('sort_by', sortBy);
           if (dateWindow) u.searchParams.set('date', dateWindow);

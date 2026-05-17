@@ -125,17 +125,12 @@ const LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
 // ── Instance lists (verified working May 2026) ──
 
 const PIPED_INSTANCES = [
-  'https://pipedapi.adminforge.de',
   'https://api.piped.private.coffee',
-  'https://api.piped.projectsegfau.lt',
-  'https://pipedapi.in.projectsegfau.lt',
-  'https://pipedapi.tokhmi.xyz',
 ];
 
 const INVIDIOUS_INSTANCES = [
   'https://inv.thepixora.com',
   'https://invidious.f5.si',
-  'https://invidious.protokolla.fi',
 ];
 
 // ── Dynamic instance discovery (cached 30 min) ──
@@ -977,36 +972,28 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
   const piped = getPipedInstances().filter(isHealthy);
   const inv = getInvidiousInstances().filter(isHealthy);
 
-  // Put the known-reliable instance first
-  const primaryPiped = 'https://pipedapi.adminforge.de';
-  const orderedPiped = [primaryPiped, ...piped.filter(i => i !== primaryPiped)].slice(0, 4);
+  // Piped adminforge currently redirects /streams to the invalid host
+  // "adminforge.destreams". Use the working Invidious audio proxy first.
+  const primaryInvidious = 'https://inv.thepixora.com';
+  const orderedInvidious = [primaryInvidious, ...inv.filter(i => i !== primaryInvidious)].slice(0, 3);
 
   // Try primary first (fast path)
   try {
-    const data = await fetchJson(`${primaryPiped}/streams/${videoId}`, 6000);
-    const url = await pickBestPipedStream(data, primaryPiped);
+    const data = await fetchJson(`${primaryInvidious}/api/v1/videos/${videoId}`, 5000);
+    const url = pickBestStream(data, primaryInvidious);
     if (url) {
-      console.log(`[resolve] ✓ ${videoId} via ${primaryPiped}`);
-      return { streamUrl: url, duration: Number(data.duration || 0) || undefined };
+      console.log(`[resolve] ✓ ${videoId} via ${primaryInvidious}`);
+      return { streamUrl: url, duration: Number(data.lengthSeconds || 0) || undefined };
     }
-    markFailed(primaryPiped);
+    markFailed(primaryInvidious);
   } catch (e) {
-    markFailed(primaryPiped);
+    markFailed(primaryInvidious);
     console.warn(`[resolve] primary failed for ${videoId}:`, (e as Error).message);
   }
 
   // Fallback: race remaining instances
   const attempts = [
-    ...orderedPiped.slice(1).map(async (inst) => {
-      try {
-        const data = await fetchJson(`${inst}/streams/${videoId}`, 7000);
-        const url = await pickBestPipedStream(data, inst);
-        if (!url) throw new Error('no audio stream');
-        console.log(`[resolve] ✓ ${videoId} via ${inst}`);
-        return { streamUrl: url, duration: Number(data.duration || 0) || undefined };
-      } catch (e) { markFailed(inst); throw e; }
-    }),
-    ...inv.slice(0, 3).map(async (inst) => {
+    ...orderedInvidious.slice(1).map(async (inst) => {
       try {
         const data = await fetchJson(`${inst}/api/v1/videos/${videoId}`, 7000);
         const url = pickBestStream(data, inst);
@@ -1015,6 +1002,15 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
         if (!(await probePlayableStream(url))) throw new Error('stream not playable');
         console.log(`[resolve] ✓ ${videoId} via ${inst}`);
         return { streamUrl: url, duration: Number(data.lengthSeconds || 0) || undefined };
+      } catch (e) { markFailed(inst); throw e; }
+    }),
+    ...piped.slice(0, 2).map(async (inst) => {
+      try {
+        const data = await fetchJson(`${inst}/streams/${videoId}`, 7000);
+        const url = await pickBestPipedStream(data, inst);
+        if (!url) throw new Error('no audio stream');
+        console.log(`[resolve] ✓ ${videoId} via ${inst}`);
+        return { streamUrl: url, duration: Number(data.duration || 0) || undefined };
       } catch (e) { markFailed(inst); throw e; }
     }),
   ];

@@ -926,6 +926,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             newQueue[currentIndex] = refreshed;
             setQueueState(newQueue);
             setCurrentSong(refreshed);
+            if (isYouTubeFallbackUrl(fresh)) {
+              const videoId = getYouTubeFallbackVideoId(fresh);
+              if (videoId) {
+                await playYouTubeFallback(videoId, () => {
+                  try { audioRef.current?.dispatchEvent(new Event('ended')); } catch { /* ignore */ }
+                });
+                return;
+              }
+            }
             configureAudioElementSource(audio, buildStreamProxyUrl(fresh));
             audio.load();
             await audio.play().catch(() => { /* will fall through to skip below on next error */ });

@@ -26,6 +26,16 @@ function dbCacheKey(artist: string, title: string) {
   return `resolve:${artist.toLowerCase().trim()}::${title.toLowerCase().trim()}`.slice(0, 200);
 }
 
+function isKnownBrokenStreamUrl(url?: string | null) {
+  if (!url || url.startsWith('yt-video:')) return false;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.startsWith('proxy.piped.');
+  } catch {
+    return false;
+  }
+}
+
 async function getDbCachedStream(artist: string, title: string): Promise<{ streamUrl: string; videoId?: string; cover_url?: string; duration?: number } | null> {
   const client = getAdminClient();
   if (!client) return null;
@@ -37,6 +47,7 @@ async function getDbCachedStream(artist: string, title: string): Promise<{ strea
       .eq('track_id', trackId)
       .maybeSingle();
     if (!data?.audio_url) return null;
+    if (isKnownBrokenStreamUrl(data.audio_url as string)) return null;
     const ageMs = Date.now() - new Date(data.last_seen_at as string).getTime();
     if (ageMs > STREAM_DB_CACHE_TTL_MS) return null;
     const meta = (data.metadata as Record<string, unknown>) || {};

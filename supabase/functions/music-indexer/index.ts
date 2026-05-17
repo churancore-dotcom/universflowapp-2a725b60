@@ -131,6 +131,7 @@ const PIPED_INSTANCES = [
 ];
 
 const INVIDIOUS_INSTANCES = [
+  'https://inv.thepixora.com',
   'https://invidious.f5.si',
   'https://invidious.protokolla.fi',
 ];

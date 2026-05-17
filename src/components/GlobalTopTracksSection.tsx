@@ -32,7 +32,7 @@ const GlobalTopTracksSection = () => {
       const names = prefs.map(p => p.artist_name).filter(Boolean);
 
       try {
-        // Query stream_songs directly by followed-artist names (case-insensitive).
+        // 1) Pull whatever we already have cached in stream_songs (instant)
         const { data, error } = await supabase
           .from('stream_songs')
           .select('track_id, title, artist, album, cover_url, duration')
@@ -41,15 +41,40 @@ const GlobalTopTracksSection = () => {
           .limit(30);
         if (error) throw error;
         if (cancelled) return;
-        const mapped: IndexedTrack[] = (data || []).map((r: any) => ({
-          id: r.track_id,
-          title: r.title,
-          artist: r.artist,
-          album: r.album ?? undefined,
-          cover_url: r.cover_url ?? undefined,
-          duration: r.duration ?? undefined,
-        }));
+        const seen = new Set<string>();
+        const mapped: IndexedTrack[] = [];
+        for (const r of (data || [])) {
+          const key = `${(r.artist || '').toLowerCase()}::${(r.title || '').toLowerCase()}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          mapped.push({
+            id: r.track_id, title: r.title, artist: r.artist,
+            album: r.album ?? undefined, cover_url: r.cover_url ?? undefined,
+            duration: r.duration ?? undefined,
+          });
+        }
         setTracks(mapped);
+
+        // 2) If the cache is thin (< 30), fan out and pull live top tracks per
+        // followed artist via the Piped/Last.fm indexer so the rail always fills.
+        if (mapped.length < 30) {
+          const perArtist = Math.max(2, Math.ceil((30 - mapped.length) / Math.max(1, names.length)));
+          const lists = await Promise.all(
+            names.slice(0, 12).map((n) => getArtistTopTracksByName(n, perArtist).catch(() => [] as IndexedTrack[]))
+          );
+          if (cancelled) return;
+          for (const list of lists) {
+            for (const t of list) {
+              const key = `${(t.artist || '').toLowerCase()}::${(t.title || '').toLowerCase()}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              mapped.push(t);
+              if (mapped.length >= 30) break;
+            }
+            if (mapped.length >= 30) break;
+          }
+          if (!cancelled) setTracks([...mapped]);
+        }
       } catch (e) {
         console.error('top-30 followed load failed', e);
       } finally {

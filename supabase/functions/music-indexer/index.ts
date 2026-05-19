@@ -754,8 +754,9 @@ async function searchForCandidates(artist: string, title: string): Promise<Recor
     candidates.push(item);
   };
 
-  // Try Piped first (generally more reliable)
-  const pipedInstances = getPipedInstances().filter(isHealthy).slice(0, 4);
+  // Try Piped first (generally more reliable). Do not globally skip recently
+  // failed instances here — one region/video failure should not limit playback.
+  const pipedInstances = getPipedInstances().slice(0, 8);
   const pipedResults = await Promise.allSettled(
     pipedInstances.map(async (inst) => {
       try {
@@ -823,7 +824,7 @@ async function searchForCandidates(artist: string, title: string): Promise<Recor
   if (candidates.length >= 4) return candidates.slice(0, 8);
 
   // Last resort: Invidious
-  const invInstances = getInvidiousInstances().filter(isHealthy).slice(0, 2);
+  const invInstances = getInvidiousInstances().slice(0, 5);
   const invResults = await Promise.allSettled(
     invInstances.map(async (inst) => {
       try {

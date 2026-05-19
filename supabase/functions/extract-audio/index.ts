@@ -8,7 +8,7 @@ const corsHeaders = {
 
 // Piped instances (community-run YouTube proxies)
 const PIPED_INSTANCES = [
-  'https://pipedapi.kavin.rocks',
+  'https://pipedapi.adminforge.de',
   'https://api.piped.private.coffee',
   'https://pipedapi.tokhmi.xyz',
   'https://pipedapi.moomoo.me',
@@ -16,7 +16,6 @@ const PIPED_INSTANCES = [
   'https://api-piped.mha.fi',
   'https://pipedapi.leptons.xyz',
   'https://pipedapi.r4fo.com',
-  'https://pipedapi.adminforge.de',
   'https://api.piped.yt',
 ];
 

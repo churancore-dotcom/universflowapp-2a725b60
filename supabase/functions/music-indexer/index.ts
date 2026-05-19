@@ -49,7 +49,8 @@ async function getDbCachedStream(artist: string, title: string): Promise<{ strea
     if (isKnownBrokenStreamUrl(data.audio_url as string)) return null;
     const ageMs = Date.now() - new Date(data.last_seen_at as string).getTime();
     if (ageMs > STREAM_DB_CACHE_TTL_MS) return null;
-    if (!(await probePlayableStream(data.audio_url as string, 2500))) return null;
+    // Do not block playback startup by probing cached streams here. If a cached
+    // URL has expired, the player force-refreshes it after the first media error.
     const meta = (data.metadata as Record<string, unknown>) || {};
     return {
       streamUrl: data.audio_url as string,

@@ -321,21 +321,20 @@ const AllArtists = () => {
   const handlePlayTrack = useCallback(async (track: IndexedTrack) => {
     setResolvingId(track.id);
     try {
-      const resolved = await resolveIndexedTrack(track.artist, track.title);
-      if (!resolved.streamUrl) throw new Error('Stream unavailable');
+      const resolved = await resolveIndexedTrack(track.artist, track.title).catch(() => null);
       const song: Song = {
         id: track.id,
-        title: resolved.title || track.title,
-        artist: resolved.artist || track.artist,
+        title: resolved?.title || track.title,
+        artist: resolved?.artist || track.artist,
         album: track.album,
-        cover_url: resolved.cover_url || track.cover_url,
-        audio_url: resolved.streamUrl,
-        duration: resolved.duration || track.duration,
+        cover_url: resolved?.cover_url || track.cover_url,
+        audio_url: resolved?.streamUrl || 'resolving',
+        duration: resolved?.duration || track.duration,
         source: 'indexed',
       };
       playSong(song, undefined, artistSongs.map(t => ({
         id: t.id, title: t.title, artist: t.artist, album: t.album,
-        cover_url: t.cover_url, audio_url: t.id === track.id ? resolved.streamUrl! : 'resolving', source: 'indexed' as const,
+        cover_url: t.cover_url, audio_url: t.id === track.id ? song.audio_url : 'resolving', source: 'indexed' as const,
       })));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Playback failed');

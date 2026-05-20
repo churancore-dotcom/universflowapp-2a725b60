@@ -184,19 +184,15 @@ const Settings = () => {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm">Crossfade</span>
-                    {!isPremium && <Crown className="w-3 h-3 text-primary" fill="currentColor" />}
                     <Switch
-                      checked={isPremium && cfEnabled}
-                      onCheckedChange={(v) => {
-                        if (!isPremium) { navigate('/premium'); return; }
-                        toggleCrossfade();
-                      }}
+                      checked={cfEnabled}
+                      onCheckedChange={() => toggleCrossfade()}
                       className="data-[state=checked]:bg-primary scale-75"
                     />
                   </div>
-                  <span className="text-sm text-primary font-medium">{isPremium && cfEnabled ? `${cfDuration}s` : 'Off'}</span>
+                  <span className="text-sm text-primary font-medium">{cfEnabled ? `${cfDuration}s` : 'Off'}</span>
                 </div>
-                {isPremium && cfEnabled && (
+                {cfEnabled && (
                   <Slider value={[cfDuration]} onValueChange={([val]) => setCrossfadeDuration(val)} max={12} step={1} className="[&_[role=slider]]:w-5 [&_[role=slider]]:h-5" />
                 )}
               </div>
@@ -204,10 +200,61 @@ const Settings = () => {
                 <span className="text-sm">Gapless Playback</span>
                 <Switch checked={gaplessPlayback} onCheckedChange={handleGapless} className="data-[state=checked]:bg-primary scale-90" />
               </div>
-              <div className="px-4 py-3 flex items-center justify-between">
+              <div className="px-4 py-3 flex items-center justify-between border-b border-border/50">
                 <span className="text-sm">Autoplay</span>
                 <Switch checked={autoplay} onCheckedChange={handleAutoplay} className="data-[state=checked]:bg-primary scale-90" />
               </div>
+
+              {/* Playback speed */}
+              <div className="px-4 py-3 border-b border-border/50">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Gauge className="w-4 h-4 text-primary" />
+                    <span className="text-sm">Playback Speed</span>
+                  </div>
+                  <span className="text-sm text-primary font-medium">{playbackSpeed.toFixed(2)}x</span>
+                </div>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {[0.75, 1, 1.25, 1.5, 2].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => handlePlaybackSpeed(s)}
+                      className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        playbackSpeed === s
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted/40 text-foreground/70 active:bg-muted'
+                      }`}
+                    >
+                      {s}x
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Equalizer shortcut */}
+              <button
+                onClick={() => setShowEq(true)}
+                className="w-full px-4 py-3 flex items-center justify-between border-b border-border/50 active:bg-muted/30"
+              >
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Equalizer & Effects</span>
+                  {!isPremium && <Crown className="w-3 h-3 text-primary" fill="currentColor" />}
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+
+              {/* Reset playback */}
+              <button
+                onClick={handleResetPlayback}
+                className="w-full px-4 py-3 flex items-center justify-between active:bg-muted/30"
+              >
+                <div className="flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm">Reset Playback Settings</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
             </div>
           </section>
 

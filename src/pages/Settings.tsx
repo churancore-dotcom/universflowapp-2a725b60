@@ -386,6 +386,7 @@ const Settings = () => {
 
         <BottomNav />
         <SupportChatModal isOpen={showSupport} onClose={() => setShowSupport(false)} />
+        <EqualizerModal isOpen={showEq} onClose={() => setShowEq(false)} />
       </div>
     </PageTransition>
   );

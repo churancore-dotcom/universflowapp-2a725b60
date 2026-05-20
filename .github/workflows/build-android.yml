@@ -173,7 +173,21 @@ jobs:
         run: |
           PKG="app.lovable.id5acaae55bbc847a7bd32f3924d8ef986"
           PKG_PATH="app/lovable/id5acaae55bbc847a7bd32f3924d8ef986"
-          MAIN_ACTIVITY="android/app/src/main/java/${PKG_PATH}/MainActivity.java"
+          MAIN_ACTIVITY="$(find android/app/src/main/java -path '*/MainActivity.java' -print -quit)"
+
+          if [ -z "$MAIN_ACTIVITY" ]; then
+            MAIN_ACTIVITY="android/app/src/main/java/${PKG_PATH}/MainActivity.java"
+            mkdir -p "$(dirname "$MAIN_ACTIVITY")"
+            cat > "$MAIN_ACTIVITY" <<EOF
+package ${PKG};
+
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {}
+EOF
+          fi
+
+          echo "Using MainActivity: $MAIN_ACTIVITY"
 
           # Add import for the WidgetBridgePlugin
           sed -i "s|import com.getcapacitor.BridgeActivity;|import com.getcapacitor.BridgeActivity;\\nimport ${PKG}.widgets.WidgetBridgePlugin;|" "$MAIN_ACTIVITY"

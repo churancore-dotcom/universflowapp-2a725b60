@@ -89,7 +89,7 @@ const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
 const EQ_SETTINGS_KEY = 'eq_settings';
 
-const CORS_ENABLED_AUDIO_HOSTS = ['supabase.co', 'the-standard.io', 'private.coffee'];
+const CORS_ENABLED_AUDIO_HOSTS = ['supabase.co', 'the-standard.io', 'private.coffee', 'saavncdn.com'];
 
 const shouldUseAnonymousCors = (audioUrl?: string | null) => {
   if (!audioUrl) return false;
@@ -126,6 +126,7 @@ const configureAudioElementSource = (audio: HTMLAudioElement, sourceUrl: string)
 // so the EQ / Web Audio graph can process it without tainting the audio.
 const DIRECT_PLAYABLE_HOST_SNIPPETS = [
   'supabase.co',
+  'saavncdn.com',
 ];
 
 const shouldProxyStreamUrl = (sourceUrl: string) => {
@@ -535,7 +536,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (song.id?.startsWith('saavn-')) {
         try {
           const { getSongStreamUrl } = await import('@/lib/jiosaavn');
-          const result = await getSongStreamUrl(song.id);
+          const result = await getSongStreamUrl(song.id, opts);
           if (result?.streamUrl) return result.streamUrl;
         } catch { /* fall through */ }
       }

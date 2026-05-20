@@ -11,6 +11,10 @@ interface SEOHeadProps {
   /** Path override when a parent doesn't have a router context. */
   path?: string;
   type?: string;
+  /** Optional JSON-LD structured data (object or array of objects). Injected into <head>. */
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  /** Stable id for the JSON-LD <script> tag so it can be replaced on re-render. */
+  jsonLdId?: string;
 }
 
 const SITE_ORIGIN = 'https://universflow.in';
@@ -26,6 +30,8 @@ const SEOHead = ({
   url,
   path,
   type = 'website',
+  jsonLd,
+  jsonLdId,
 }: SEOHeadProps) => {
   const location = useLocation();
   const resolvedPath = path ?? location.pathname ?? '/';
@@ -78,7 +84,22 @@ const SEOHead = ({
       document.head.appendChild(canonical);
     }
     canonical.href = resolvedUrl;
-  }, [title, description, keywords, image, resolvedUrl, type]);
+
+    // Per-route JSON-LD (MusicGroup, CollectionPage, etc.)
+    const ldId = jsonLdId ?? 'seohead-jsonld';
+    let ldEl = document.getElementById(ldId) as HTMLScriptElement | null;
+    if (jsonLd) {
+      if (!ldEl) {
+        ldEl = document.createElement('script');
+        ldEl.type = 'application/ld+json';
+        ldEl.id = ldId;
+        document.head.appendChild(ldEl);
+      }
+      ldEl.textContent = JSON.stringify(jsonLd);
+    } else if (ldEl) {
+      ldEl.remove();
+    }
+  }, [title, description, keywords, image, resolvedUrl, type, jsonLd, jsonLdId]);
 
   return null;
 };

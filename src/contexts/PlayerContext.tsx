@@ -1093,7 +1093,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Set audio source - use offline URL if available
       const playbackUrl = offlineUrl || buildStreamProxyUrl(playbackSource);
       configureAudioElementSource(audioRef.current, playbackUrl);
-      audioRef.current.volume = volume;
+      audioRef.current.muted = false;
+      audioRef.current.volume = volume > 0 ? volume : 0.8;
       audioRef.current.currentTime = 0;
 
       // Load and play immediately

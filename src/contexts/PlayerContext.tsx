@@ -477,6 +477,48 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Wire the global EQ/audio engine to the live audio element. Persists across modal open/close.
   useGlobalAudioEngine(audioElement);
 
+  // ── EQ requires a CORS-safe source. When the user turns EQ on AFTER a song
+  // has started, the current <audio> src is the raw external stream (not the
+  // supabase-proxied URL), so connectAudioElement fails and EQ silently does
+  // nothing. Listen for the EQ-change event, and if the current src isn't
+  // already going through our proxy, re-source it via the proxy while
+  // preserving currentTime + playing state. The engine's `canplay` listener
+  // will then successfully build the processed chain.
+  useEffect(() => {
+    const onEqChanged = () => {
+      const a = audioRef.current;
+      if (!a || !a.src) return;
+      if (!getRuntimePremium()) return;
+      if (!isEqProcessingEnabled()) return;
+      // Already going through our edge-function proxy → already CORS-safe.
+      if (a.src.includes('/functions/v1/music-indexer?audio=')) return;
+      // Same-origin or already-CORS-safe hosts also work.
+      if (!shouldProxyStreamUrl(a.src)) return;
+
+      const wasPlaying = !a.paused;
+      const at = a.currentTime;
+      const original = currentSong?.audio_url;
+      if (!original) return;
+      try {
+        configureAudioElementSource(a, buildStreamProxyUrl(original));
+        a.load();
+        const restore = () => {
+          try { a.currentTime = at; } catch { /* ignore */ }
+          a.removeEventListener('loadedmetadata', restore);
+          if (wasPlaying) a.play().catch(() => {});
+        };
+        a.addEventListener('loadedmetadata', restore, { once: true });
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('uf-eq-changed', onEqChanged);
+    window.addEventListener('storage', (e) => { if (e.key === EQ_SETTINGS_KEY) onEqChanged(); });
+    return () => {
+      window.removeEventListener('uf-eq-changed', onEqChanged);
+    };
+  }, [currentSong?.audio_url]);
+
+
+
 
   // Progress is pushed via the audio element's native `timeupdate` event
   // (handled in the main audio listener below). No React state interval needed.

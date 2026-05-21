@@ -27,6 +27,18 @@ async function sha256(input: string): Promise<string> {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Build a deterministic UUID v4-shaped string from an arbitrary identifier.
+// Used so we can reuse the user_id-keyed api_rate_limits table for IP-based limits.
+async function idToUuid(id: string): Promise<string> {
+  const h = await sha256(`ip:${id}`);
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
+function clientIp(req: Request): string {
+  const xf = req.headers.get('x-forwarded-for') ?? '';
+  return (xf.split(',')[0] || req.headers.get('cf-connecting-ip') || 'unknown').trim();
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (!RESEND_API_KEY) {
@@ -46,6 +58,23 @@ Deno.serve(async (req) => {
       JSON.stringify({ success: true }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
+    // Global per-IP throttle: max 10 send attempts / minute / IP.
+    // Silently swallow excess to avoid leaking which addresses are registered.
+    try {
+      const ipUuid = await idToUuid(clientIp(req));
+      const rl = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_and_increment_rate_limit`, {
+        method: 'POST',
+        headers: {
+          apikey: SERVICE_ROLE,
+          Authorization: `Bearer ${SERVICE_ROLE}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ _user_id: ipUuid, _endpoint: 'send_verification_link', _max_per_minute: 10 }),
+      });
+      const allowed = await rl.json().catch(() => true);
+      if (allowed === false) return UNIFORM_OK;
+    } catch (_) { /* fail-open on rate-limiter outage */ }
 
     if (!isEmail(email)) {
       // Still return uniform success for invalid emails — don't leak validity either.

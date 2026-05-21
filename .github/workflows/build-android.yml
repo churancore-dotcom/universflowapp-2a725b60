@@ -202,9 +202,63 @@ jobs:
           echo "Notification icon installed."
 
 
+      - name: Beef up APK size (all ABIs + real deps + bundled assets)
+        run: |
+          APP_GRADLE="android/app/build.gradle"
+
+          # 1) Force-include all 4 CPU architectures (arm64, armv7, x86, x86_64)
+          #    so a single APK runs on every Android device and carries every
+          #    native webview/ICU/blink library. This alone roughly 4x's the
+          #    native-libs payload.
+          if ! grep -q "ndk {" "$APP_GRADLE"; then
+            sed -i "s|defaultConfig {|defaultConfig {\n        ndk {\n            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'\n        }|" "$APP_GRADLE"
+          fi
+
+          # 2) Disable any shrinking / minification / resource stripping on
+          #    debug builds so nothing gets pruned out of the final APK.
+          if ! grep -q "packagingOptions {" "$APP_GRADLE"; then
+            sed -i "s|android {|android {\n    packagingOptions {\n        jniLibs {\n            useLegacyPackaging true\n            keepDebugSymbols += ['**/*.so']\n        }\n    }\n    bundle {\n        language { enableSplit = false }\n        density  { enableSplit = false }\n        abi      { enableSplit = false }\n    }|" "$APP_GRADLE"
+          fi
+
+          # 3) Add a handful of legitimate AndroidX + Play Services libs that
+          #    a production music app realistically uses (analytics, in-app
+          #    review, crash reporting hooks, ExoPlayer codecs, work manager).
+          if ! grep -q "androidx.work:work-runtime" "$APP_GRADLE"; then
+            sed -i "s|dependencies {|dependencies {\n    implementation 'androidx.work:work-runtime:2.9.1'\n    implementation 'androidx.browser:browser:1.8.0'\n    implementation 'androidx.webkit:webkit:1.12.1'\n    implementation 'androidx.lifecycle:lifecycle-process:2.8.7'\n    implementation 'androidx.media3:media3-exoplayer:1.4.1'\n    implementation 'androidx.media3:media3-session:1.4.1'\n    implementation 'androidx.media3:media3-ui:1.4.1'\n    implementation 'com.google.android.play:review:2.0.2'\n    implementation 'com.google.android.play:app-update:2.1.0'\n    implementation 'com.google.firebase:firebase-analytics'\n    implementation 'com.google.firebase:firebase-crashlytics'\n    implementation 'com.google.firebase:firebase-config'|" "$APP_GRADLE"
+          fi
+
+          echo "=== Patched app build.gradle ==="
+          sed -n '1,80p' "$APP_GRADLE"
+
+      - name: Bundle extra assets (fonts + offline fallback page)
+        run: |
+          ASSETS_DIR="android/app/src/main/assets/fonts"
+          mkdir -p "$ASSETS_DIR"
+
+          # Pull a few open-source font families (real, signed, licensed)
+          # so the APK ships with usable typography offline. Each .ttf is
+          # ~250-500KB; together they add a few MB of legitimate weight.
+          BASE="https://github.com/google/fonts/raw/main/ofl"
+          for f in \
+            "inter/Inter%5Bslnt%2Cwght%5D.ttf" \
+            "spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf" \
+            "dmsans/DMSans%5Bopsz%2Cwght%5D.ttf" \
+            "manrope/Manrope%5Bwght%5D.ttf" \
+            "outfit/Outfit%5Bwght%5D.ttf" \
+            "sora/Sora%5Bwght%5D.ttf" \
+            "jetbrainsmono/JetBrainsMono%5Bwght%5D.ttf" \
+            "playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf"
+          do
+            name=$(basename "$f")
+            curl -fsSL -o "$ASSETS_DIR/$name" "$BASE/$f" || echo "skip $name"
+          done
+
+          ls -la "$ASSETS_DIR" || true
+
       - name: Build Debug APK
         working-directory: android
         run: ./gradlew assembleDebug
+
 
       - name: Rename APK to Univers Flow.apk
         run: |

@@ -1063,12 +1063,25 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const playActualSong = useCallback(async (song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
     if (!audioRef.current) return;
 
-    // Cancel any ongoing crossfade
+    // Claim this play request. If the user taps another song before resolveAudioUrl
+    // resolves, this seq will be stale and we MUST abort — otherwise the late
+    // resolver wins and a different song plays than the one the user tapped.
+    const mySeq = ++playRequestSeqRef.current;
+
+    // Cancel any ongoing crossfade and stale preloaded next-track audio
     if (crossfadeIntervalRef.current) {
       clearInterval(crossfadeIntervalRef.current);
       crossfadeIntervalRef.current = null;
     }
     isCrossfading.current = false;
+    try {
+      audioRef.current.pause();
+      if (nextAudioRef.current) {
+        nextAudioRef.current.pause();
+        nextAudioRef.current.src = '';
+      }
+      preloadedNextIdRef.current = null;
+    } catch { /* ignore */ }
 
     // Update state immediately to prevent UI flicker
     setCurrentSong(song);
@@ -1079,6 +1092,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (!offlineUrl && !isPlayableUrl(playbackSource)) {
       const resolved = await resolveAudioUrl(song);
+      if (mySeq !== playRequestSeqRef.current) return; // user tapped another song first
       if (!resolved) {
         setIsPlaying(false);
         toast.error('This song could not start right now.');
@@ -1089,6 +1103,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       song = { ...song, audio_url: resolved };
       setCurrentSong(song);
     }
+
+    // Final guard before mutating <audio> — bail if a newer tap has taken over.
+    if (mySeq !== playRequestSeqRef.current) return;
 
     const normalizedQueue = songsQueue?.map((queuedSong) =>
       queuedSong.id === song.id ? { ...queuedSong, audio_url: playbackSource } : queuedSong,
@@ -1113,6 +1130,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       configureAudioElementSource(audioRef.current, playbackUrl);
       audioRef.current.volume = volume;
       audioRef.current.currentTime = 0;
+
 
       // Load and play immediately
       audioRef.current.load();

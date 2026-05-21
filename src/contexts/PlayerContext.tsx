@@ -278,6 +278,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const animationFrameRef = useRef<number | null>(null);
   const recentlyPlayedTimerRef = useRef<number | null>(null);
   const queueRestoredRef = useRef(false);
+  // Monotonic request id — increments on every playActualSong / playSongAtIndex
+  // call. Any async work that completes after a newer request must abort,
+  // otherwise an old `audio.src = ...` can win the race and the WRONG song
+  // ends up playing while the UI shows the song the user actually tapped.
+  const playRequestSeqRef = useRef(0);
+
 
   // YouTube IFrame fallback
   const youtubePlayerRef = useRef<YouTubePlayer | null>(null);

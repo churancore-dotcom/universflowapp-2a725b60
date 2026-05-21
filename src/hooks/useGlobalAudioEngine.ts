@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { bypassAudioElement, connectAudioElement, setBands, setReverb, setSpatial, setLateNight, resume, subscribe } from '@/lib/audioEngine';
+import { bypassAudioElement, connectAudioElement, setBands, setReverb, setSpatial, setLateNight, setStudioSpace as engineSetStudioSpace, resume, subscribe, type StudioSpaceId } from '@/lib/audioEngine';
 import { usePremium } from '@/hooks/usePremium';
 
 const STORAGE_KEY = 'eq_settings';
@@ -10,7 +10,7 @@ interface StoredEQ {
   reverb?: number;
   spatialAudio?: boolean;
   playbackSpeed?: number;
-  studioSpace?: string;
+  studioSpace?: StudioSpaceId;
   lateNight?: boolean;
 }
 
@@ -83,6 +83,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       if (!ok) return;
       setBands(s.bands ?? [0, 0, 0, 0, 0, 0, 0, 0], s.bassBoost ?? 0);
       setReverb(s.reverb ?? 0);
+      engineSetStudioSpace(s.studioSpace ?? 'off');
       setSpatial(!!s.spatialAudio);
       setLateNight(!!s.lateNight);
       if (typeof s.playbackSpeed === 'number') audioElement.playbackRate = s.playbackSpeed;

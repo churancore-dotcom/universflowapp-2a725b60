@@ -74,10 +74,18 @@ const Settings = () => {
 
   const handleGapless = (val: boolean) => { setGaplessPlayback(val); localStorage.setItem('uf_gapless', String(val)); };
   const handleAutoplay = (val: boolean) => { setAutoplay(val); localStorage.setItem('uf_autoplay', String(val)); };
-  const handleNotifications = (val: boolean) => {
+  const handleNotifications = async (val: boolean) => {
     setNotifications(val);
     localStorage.setItem('uf_notifications', String(val));
-    if (val && 'Notification' in window) Notification.requestPermission();
+    if (!val) return;
+    const isNative = typeof (window as any).Capacitor !== 'undefined'
+      && (window as any).Capacitor.isNativePlatform?.() === true;
+    if (isNative) {
+      const { requestPushPermissionAndRegister } = await import('@/hooks/usePushRegistration');
+      await requestPushPermissionAndRegister();
+    } else if ('Notification' in window) {
+      Notification.requestPermission();
+    }
   };
   const handleHaptics = (val: boolean) => { setHaptics(val); localStorage.setItem('uf_haptics', String(val)); };
 

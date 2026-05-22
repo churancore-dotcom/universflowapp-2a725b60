@@ -1,18 +1,16 @@
-// Registers the device with FCM (Capacitor Push Notifications) and
-// stores the token in `device_tokens`. Also wires deep-link tap handling.
+// Registers the device with FCM (Capacitor Push Notifications) and stores the
+// token in `device_tokens`. Also wires deep-link tap handling.
 //
-// IMPORTANT: PushNotifications.register() calls native Firebase code.
-// If google-services.json / Firebase Gradle plugin are NOT in the Android
-// build, register() throws a NATIVE exception that JS try/catch CANNOT
-// catch, and the app process dies right after the user taps "Allow".
-//
-// To avoid bricking the app for users on a build without Firebase wired up,
-// we:
-//   1. Skip permanently if a previous attempt crashed (sticky flag).
-//   2. Set a "pending" flag BEFORE calling register(); clear it on success.
-//      If we see the flag still set on next launch, we know the previous
-//      register() killed the process and we never try again.
-//   3. Wrap everything in try/catch as a JS-side safety net.
+// Design notes:
+//   - We DO NOT permanently disable push after a single failure. Earlier
+//     builds set a "sticky disabled" flag on any pending-flag carry-over;
+//     that ended up muting the permission prompt forever on devices where
+//     the user had simply force-closed the app during the first launch.
+//   - We retry register() on every cold start. Firebase + google-services
+//     are now wired into the APK build, so register() is safe.
+//   - The token may arrive BEFORE the user signs in. We cache the latest
+//     token in-memory and re-upsert it whenever auth state becomes
+//     authenticated.
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -20,46 +18,58 @@ const isNative = () =>
   typeof (window as any).Capacitor !== 'undefined' &&
   (window as any).Capacitor.isNativePlatform?.() === true;
 
-const PUSH_DISABLED_KEY = 'push_disabled_after_crash';
-const PUSH_PENDING_KEY = 'push_register_pending';
+// Module-level so other callers (e.g. a "Re-register device" button) can
+// trigger a manual retry without needing to remount the hook.
+let lastToken: string | null = null;
+let lastDeviceMeta: Record<string, unknown> = {};
+
+async function upsertToken(token: string, meta: Record<string, unknown>) {
+  const { data } = await supabase.auth.getUser();
+  const uid = data?.user?.id;
+  if (!uid) return; // will retry on next auth change
+  await supabase.from('device_tokens').upsert(
+    {
+      user_id: uid,
+      token,
+      platform: 'android',
+      device_info: { ...meta, last_seen_at: new Date().toISOString() },
+    },
+    { onConflict: 'token' },
+  );
+}
 
 export function usePushRegistration() {
   useEffect(() => {
     if (!isNative()) return;
 
-    // If a previous register() killed the app, never try again on this device.
-    try {
-      if (localStorage.getItem(PUSH_DISABLED_KEY) === '1') {
-        console.warn('[Push] Disabled — previous register() crashed the app.');
-        return;
-      }
-      // If the pending flag is still set, the last attempt crashed natively.
-      // Mark push as permanently disabled and bail out.
-      if (localStorage.getItem(PUSH_PENDING_KEY) === '1') {
-        localStorage.setItem(PUSH_DISABLED_KEY, '1');
-        localStorage.removeItem(PUSH_PENDING_KEY);
-        console.warn('[Push] Detected prior native crash — disabling push.');
-        return;
-      }
-    } catch {}
-
     let cancelled = false;
     let removeListeners: Array<() => void> = [];
+
+    // Re-upsert the cached token whenever the user signs in so the device
+    // is properly attached to their account even if the FCM token arrived
+    // before login.
+    const { data: authSub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      if (session?.user && lastToken) {
+        upsertToken(lastToken, lastDeviceMeta).catch(() => { /* ignore */ });
+      }
+    });
 
     (async () => {
       try {
         const { PushNotifications } = await import('@capacitor/push-notifications');
 
-        // 1) Permission
+        // 1) Permission — always prompt if not yet granted.
         let perm = await PushNotifications.checkPermissions();
         if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
           perm = await PushNotifications.requestPermissions();
         }
-        if (perm.receive !== 'granted') return;
+        if (perm.receive !== 'granted') {
+          console.warn('[Push] permission not granted:', perm.receive);
+          return;
+        }
 
-        // Android 8+ requires the notification channel to exist before FCM can
-        // display notifications sent with android.notification.channel_id.
-        // Our backend sends `universflow_default`, so create/refresh it here.
+        // Android 8+ requires the notification channel to exist before FCM
+        // can display notifications sent with android.notification.channel_id.
         try {
           await PushNotifications.createChannel({
             id: 'universflow_default',
@@ -72,7 +82,6 @@ export function usePushRegistration() {
           console.warn('[Push] notification channel setup failed', channelError);
         }
 
-        // 2) Register listeners FIRST so we catch registrationError
         // Capture rich device metadata so admin can identify "whose APK this is"
         let deviceMeta: Record<string, unknown> = { ua: navigator.userAgent };
         try {
@@ -95,29 +104,22 @@ export function usePushRegistration() {
         } catch (metaErr) {
           console.warn('[Push] device meta unavailable', metaErr);
         }
+        lastDeviceMeta = deviceMeta;
 
+        // 2) Register listeners BEFORE calling register().
         const tokenListener = await PushNotifications.addListener('registration', async (t) => {
           if (cancelled) return;
-          // Success — clear pending flag
-          try { localStorage.removeItem(PUSH_PENDING_KEY); } catch {}
-          const { data } = await supabase.auth.getUser();
-          const uid = data?.user?.id;
-          if (!uid) return;
-          await supabase.from('device_tokens').upsert(
-            {
-              user_id: uid,
-              token: t.value,
-              platform: 'android',
-              device_info: { ...deviceMeta, last_seen_at: new Date().toISOString() },
-            },
-            { onConflict: 'token' },
-          );
+          lastToken = t.value;
+          try {
+            await upsertToken(t.value, deviceMeta);
+          } catch (err) {
+            console.warn('[Push] token upsert failed', err);
+          }
         });
         removeListeners.push(() => tokenListener.remove());
 
         const errListener = await PushNotifications.addListener('registrationError', (e) => {
           console.warn('[Push] registrationError', e);
-          try { localStorage.removeItem(PUSH_PENDING_KEY); } catch {}
         });
         removeListeners.push(() => errListener.remove());
 
@@ -133,15 +135,12 @@ export function usePushRegistration() {
             const data = (action.notification.data ?? {}) as Record<string, unknown>;
             const dl = typeof data.deep_link === 'string' ? data.deep_link : '';
             const title = action.notification.title ?? 'Notification opened';
-
-            // Lazy-import toast so we don't pull it into the registration path.
             const { toast } = await import('@/hooks/use-toast');
 
             if (dl.length === 0) {
               toast({ title, description: 'No deep link attached' });
               return;
             }
-
             try {
               if (dl.startsWith('http')) {
                 window.location.href = dl;
@@ -149,43 +148,48 @@ export function usePushRegistration() {
                 window.history.pushState({}, '', dl);
                 window.dispatchEvent(new PopStateEvent('popstate'));
               }
-              // Confirm in-app that the deep link resolved
-              setTimeout(() => {
-                toast({
-                  title: '🔗 Opened from notification',
-                  description: `Navigated to ${dl}`,
-                });
-              }, 250);
             } catch (e) {
               console.warn('deep link nav failed', e);
-              toast({
-                title: 'Could not open link',
-                description: dl,
-                variant: 'destructive',
-              });
             }
           },
         );
         removeListeners.push(() => actionListener.remove());
 
-        // 3) Set crash-tripwire flag, then call native register().
-        // If register() crashes the process natively, the flag survives
-        // and we'll permanently disable push on next launch.
-        try { localStorage.setItem(PUSH_PENDING_KEY, '1'); } catch {}
+        // 3) Trigger the actual FCM registration.
         await PushNotifications.register();
-        // If we got here, register() didn't crash synchronously. The flag
-        // gets cleared in the 'registration' or 'registrationError' callback.
       } catch (e) {
-        try { localStorage.removeItem(PUSH_PENDING_KEY); } catch {}
         console.warn('[Push] setup skipped:', e);
       }
     })();
 
     return () => {
       cancelled = true;
+      try { authSub.subscription.unsubscribe(); } catch { /* ignore */ }
       removeListeners.forEach((fn) => {
         try { fn(); } catch {}
       });
     };
   }, []);
+}
+
+/**
+ * Manually re-trigger the push permission prompt + FCM registration.
+ * Useful from a "Re-register device" button in Settings when the user
+ * denied permission the first time or didn't see the prompt.
+ */
+export async function requestPushPermissionAndRegister(): Promise<'granted' | 'denied' | 'unsupported'> {
+  if (!isNative()) return 'unsupported';
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    let perm = await PushNotifications.checkPermissions();
+    if (perm.receive !== 'granted') {
+      perm = await PushNotifications.requestPermissions();
+    }
+    if (perm.receive !== 'granted') return 'denied';
+    await PushNotifications.register();
+    return 'granted';
+  } catch (e) {
+    console.warn('[Push] manual register failed', e);
+    return 'denied';
+  }
 }

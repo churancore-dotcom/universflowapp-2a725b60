@@ -53,6 +53,9 @@ export interface Song {
   source?: 'library' | 'audius' | 'indexed';
 }
 
+const getSongIdentity = (song: Pick<Song, 'id' | 'title' | 'artist'>) =>
+  `${song.id}::${song.artist.trim().toLowerCase()}::${song.title.trim().toLowerCase()}`;
+
 interface PlayerContextType {
   currentSong: Song | null;
   isPlaying: boolean;
@@ -282,6 +285,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // otherwise an old `audio.src = ...` can win the race and the WRONG song
   // ends up playing while the UI shows the song the user actually tapped.
   const playRequestSeqRef = useRef(0);
+  const activeSongIdentityRef = useRef<string | null>(null);
 
 
   // YouTube IFrame fallback

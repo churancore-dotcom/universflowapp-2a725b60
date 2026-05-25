@@ -1304,6 +1304,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setQueueState([]);
     setCurrentIndex(0);
     setExpanded(false);
+    activeSongIdentityRef.current = null;
   }, [teardownYouTubePlayback]);
 
   const nextSong = useCallback(async () => {

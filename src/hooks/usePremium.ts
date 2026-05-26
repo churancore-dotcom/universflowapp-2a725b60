@@ -120,6 +120,24 @@ export const usePremium = (): UsePremiumReturn => {
     fetchSubscription();
   }, [fetchSubscription]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`premium-status-${user.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_subscriptions',
+        filter: `user_id=eq.${user.id}`,
+      }, () => {
+        fetchSubscription();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user, fetchSubscription]);
+
   const isPremium = verifiedPremium;
 
   // Mirror the server-verified value into a runtime flag that other modules

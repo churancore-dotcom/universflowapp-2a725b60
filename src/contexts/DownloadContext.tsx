@@ -219,11 +219,12 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const songs: DownloadedSong[] = [];
         const urls: Record<string, string> = {};
         
-        for (const { song, audioBlob } of storedSongs) {
+        for (const { song, audioBlob, coverBlob } of storedSongs) {
           try {
             const blobUrl = URL.createObjectURL(audioBlob);
+            const coverBlobUrl = coverBlob ? URL.createObjectURL(coverBlob) : null;
             urls[song.id] = blobUrl;
-            songs.push({ ...song, blobUrl });
+            songs.push({ ...song, blobUrl, cover_url: coverBlobUrl || song.cover_url });
           } catch (e) {
             console.warn('Failed to create blob URL for song:', song.id);
           }
@@ -327,16 +328,31 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Create blob from chunks
       const blob = new Blob(chunks, { type: 'audio/mpeg' });
       const blobUrl = URL.createObjectURL(blob);
+      let coverBlob: Blob | null = null;
+      let offlineCoverUrl = song.cover_url;
+
+      if (song.cover_url && /^https?:\/\//i.test(song.cover_url)) {
+        try {
+          const coverResponse = await fetch(song.cover_url, { mode: 'cors', credentials: 'omit' });
+          if (coverResponse.ok) {
+            coverBlob = await coverResponse.blob();
+            offlineCoverUrl = URL.createObjectURL(coverBlob);
+          }
+        } catch {
+          // Cover caching is best effort; audio download must still succeed.
+        }
+      }
 
       const downloadedSong: DownloadedSong = {
         ...song,
+        cover_url: offlineCoverUrl,
         downloadedAt: new Date().toISOString(),
         blobUrl,
         size: blob.size,
       };
 
       // Save to IndexedDB
-      await saveToDB(downloadedSong, blob);
+      await saveToDB(downloadedSong, blob, coverBlob);
 
       // Update state
       setDownloads(prev => [...prev, downloadedSong]);

@@ -352,7 +352,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       };
 
       // Save to IndexedDB
-      await saveToDB(downloadedSong, blob, coverBlob);
+      await saveToDB({ ...downloadedSong, cover_url: song.cover_url }, blob, coverBlob);
 
       // Update state
       setDownloads(prev => [...prev, downloadedSong]);

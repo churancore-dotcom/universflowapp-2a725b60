@@ -323,7 +323,7 @@ const App = () => {
   return (
     <SentryErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
           <AuthProvider>
             <PlayerProvider>
               <PlayWithMateProvider>

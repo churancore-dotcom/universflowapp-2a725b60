@@ -461,6 +461,21 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Wire the global EQ/audio engine to the live audio element. Persists across modal open/close.
   useGlobalAudioEngine(audioElement);
 
+  const publishNativeMusicControls = useCallback((song: Song, playing: boolean, duration?: number) => {
+    import('@/lib/nativeMusicControls')
+      .then(({ showNativeMusicControls }) => showNativeMusicControls(
+        {
+          title: song.title,
+          artist: song.artist,
+          cover: song.cover_url,
+          album: song.album,
+          duration: duration || song.duration,
+        },
+        playing,
+      ))
+      .catch(() => {});
+  }, []);
+
   // ── EQ requires a CORS-safe source. When the user turns EQ on AFTER a song
   // has started, the current <audio> src is the raw external stream (not the
   // supabase-proxied URL), so connectAudioElement fails and EQ silently does
@@ -793,6 +808,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCurrentIndex(index);
     setProgress(0);
     setIsPlaying(true);
+    publishNativeMusicControls(resolvedSong, true, resolvedSong.duration);
 
     // Resolve audio URL if needed
     let audioUrl = resolvedSong.audio_url;
@@ -870,7 +886,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         prefetchIndexedTrack(nextSong.artist, nextSong.title);
       }
     }
-  }, [volume, isPlayableUrl, resolveAudioUrl, playYouTubeFallback, teardownYouTubePlayback]);
+  }, [volume, isPlayableUrl, resolveAudioUrl, playYouTubeFallback, teardownYouTubePlayback, publishNativeMusicControls, getNextIndex, shuffle, repeat]);
 
   // Handle song end and crossfade
   useEffect(() => {
@@ -1007,6 +1023,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (nextIdx === null && repeat === 'all') nextIdx = 0;
       if (nextIdx === null && queue.length > 1) nextIdx = (currentIndex + 1) % queue.length;
 
+      if (errorBelongsToActiveSong && nextIdx !== null && queue[nextIdx]) {
+        toast.info('Skipping unavailable stream…');
+        playSongAtIndex(nextIdx, queue);
+        return;
+      }
+
       if (errorBelongsToActiveSong) {
         setIsPlaying(false);
         toast.error('This song could not start right now.');
@@ -1131,6 +1153,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCurrentSong(song);
     setProgress(0);
     setIsPlaying(true);
+    publishNativeMusicControls(song, true, song.duration);
     
     let playbackSource = offlineUrl || song.audio_url;
 
@@ -1182,6 +1205,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (playPromise) {
         playPromise.catch(err => {
           console.warn('Playback failed:', err?.message);
+          const activeQueue = normalizedQueue && normalizedQueue.length > 1 ? normalizedQueue : queueRef.current;
+          const songIndex = activeQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
+          if (mySeq === playRequestSeqRef.current && activeQueue.length > 1 && songIndex >= 0) {
+            const fallbackIdx = getNextIndex(songIndex, activeQueue.length, shuffle, repeat) ?? ((songIndex + 1) % activeQueue.length);
+            playSongAtIndex(fallbackIdx, activeQueue);
+            return;
+          }
           setIsPlaying(false);
           toast.error('This song could not start — trying another source helps while the stream refreshes.');
         });
@@ -1232,7 +1262,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }).catch(() => {});
       }, 30000);
     }
-  }, [isPlayableUrl, resolveAudioUrl, volume, playYouTubeFallback, teardownYouTubePlayback]);
+  }, [isPlayableUrl, resolveAudioUrl, volume, playYouTubeFallback, teardownYouTubePlayback, publishNativeMusicControls, getNextIndex, shuffle, repeat, playSongAtIndex]);
 
   const playSong = useCallback((song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
     // Spotify-like behavior: a tap must start playback immediately. Ads/premium

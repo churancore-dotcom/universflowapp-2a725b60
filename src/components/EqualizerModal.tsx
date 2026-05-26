@@ -124,8 +124,7 @@ function saveSettings(data: any) {
 const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const { audioElement, currentSong } = usePlayer();
   const { isPremium, isLoading: premiumLoading } = usePremium();
-  const allowOfflineEq = typeof navigator !== 'undefined' && navigator.onLine === false;
-  const eqAllowed = isPremium || allowOfflineEq;
+  const eqAllowed = isPremium;
   const engineMode = useEngineState();
   const isConnected = engineMode === 'processed';
 

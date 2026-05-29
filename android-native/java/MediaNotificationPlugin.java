@@ -105,7 +105,9 @@ public class MediaNotificationPlugin extends Plugin {
     public void destroy(PluginCall call) {
         Intent i = new Intent(getContext(), MediaNotificationService.class);
         i.setAction(MediaNotificationService.ACTION_STOP);
-        startMediaService(i);
+        // Use plain startService for STOP — we don't need (and don't want) the
+        // 5-second startForeground() contract for a teardown intent.
+        startMediaService(i, false);
         call.resolve();
     }
 

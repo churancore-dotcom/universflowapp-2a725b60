@@ -43,16 +43,21 @@ public class MediaNotificationPlugin extends Plugin {
     private static MediaNotificationPlugin instance;
 
     private void startMediaService(Intent intent) {
+        startMediaService(intent, true);
+    }
+
+    private void startMediaService(Intent intent, boolean foreground) {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (foreground && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 getContext().startForegroundService(intent);
             } else {
                 getContext().startService(intent);
             }
         } catch (Exception ignored) {
-            // Background service starts can be rejected on aggressive Android builds.
-            // The JS audio engine keeps playing; the next foreground/notification
-            // update will resync the MediaSession instead of crashing the APK.
+            // Background service starts can be rejected on aggressive Android builds
+            // (Xiaomi/Vivo battery savers, Doze, app-standby). The JS audio engine
+            // keeps playing — the next foreground update will resync MediaSession
+            // instead of crashing the APK.
         }
     }
 
